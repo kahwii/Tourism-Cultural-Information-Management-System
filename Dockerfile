@@ -15,13 +15,25 @@ FROM php:8.2-apache
 #   call fails, and Google sign-in breaks on BOTH the mobile app and the
 #   website. The same bundle is used for the TLS connection to TiDB Cloud.
 # ------------------------------------------------------------
+#   libjpeg/libpng/libwebp/libfreetype/libavif: needed to build the GD
+#   extension below. Without GD, every image upload endpoint (event posters,
+#   avatars) fails outright — getimagesize() still works without it, but
+#   none of the imagecreatefrom*()/imagejpeg() calls used to re-encode and
+#   resize uploads exist, so the upload always 500s.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
+       libjpeg62-turbo-dev libpng-dev libwebp-dev libfreetype6-dev libavif-dev \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # mysqli for the database layer
 RUN docker-php-ext-install mysqli && docker-php-ext-enable mysqli
+
+# GD for image upload processing (event posters, avatars) — re-encodes and
+# resizes uploads server-side, which also strips any hidden payload from a
+# file that isn't really an image.
+RUN docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype --with-avif \
+    && docker-php-ext-install gd && docker-php-ext-enable gd
 
 # .htaccess files in the project rely on mod_rewrite and mod_headers
 RUN a2enmod rewrite headers

@@ -8,6 +8,12 @@ import { EVENTS_2026 } from "../data/tcimsData";
 import { apiList, apiCreate, apiUpdate, apiRemove, apiUploadEventImage, apiNotifyEventDecision, fileUrl } from "../api/api";
 import { toast } from "../utils/toast";
 import Icon from "./Icon";
+import ImageCropper from "./ImageCropper";
+
+// Matches the poster preview's display ratio (modal content ~408px wide,
+// preview box 140px tall) so what the user crops is what they see everywhere
+// else the poster is shown.
+const POSTER_ASPECT = 408 / 140;
 
 const STATUS_OPTIONS = ["Upcoming", "Ongoing", "Completed", "Cancelled"];
 
@@ -86,6 +92,7 @@ export default function Events() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [imageUploading, setImageUploading] = useState(false);
+  const [cropFile, setCropFile] = useState(null); // raw File awaiting crop, or null
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
@@ -114,13 +121,18 @@ export default function Events() {
     setModalOpen(true);
   };
 
-  // Uploads immediately on file pick (same pattern as the profile-picture
-  // uploader) so Save just persists the resulting path like any other field.
-  const onImageChosen = async (file) => {
-    if (!file) return;
+  // A file is picked -> open the crop tool. Nothing is uploaded yet.
+  const onImageChosen = (file) => { if (file) setCropFile(file); };
+
+  // Cropper hands back a ready-to-upload JPEG blob; upload it immediately
+  // (same pattern as the profile-picture uploader) so Save just persists the
+  // resulting path like any other field.
+  const onCropApplied = async (blob) => {
+    setCropFile(null);
     setImageUploading(true);
     try {
-      const res = await apiUploadEventImage(file, form.image || null);
+      const croppedFile = new File([blob], "poster.jpg", { type: "image/jpeg" });
+      const res = await apiUploadEventImage(croppedFile, form.image || null);
       setForm(f => ({ ...f, image: res.image }));
     } catch (e) {
       toast.error(e.message || "Failed to upload image.");
@@ -550,18 +562,36 @@ export default function Events() {
             {form.image ? (
               <div style={posterPreviewWrap}>
                 <img src={fileUrl(form.image)} alt="Event poster" style={posterPreviewImg} />
-                <button type="button" style={posterRemoveBtn} className="tc-btn" onClick={removeImage} disabled={imageUploading}>Remove</button>
+                <div style={posterActions}>
+                  <label style={posterChangeBtn} className="tc-btn">
+                    Change
+                    <input
+                      type="file" accept="image/*"
+                      style={{ display: "none" }} disabled={imageUploading}
+                      onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
+                    />
+                  </label>
+                  <button type="button" style={posterRemoveBtn} className="tc-btn" onClick={removeImage} disabled={imageUploading}>Remove</button>
+                </div>
               </div>
             ) : (
               <label style={posterDropzone}>
                 <Icon name="calendar" size={20} style={{ color: "#9ca3af" }} />
                 <span>{imageUploading ? "Uploading…" : "Click to upload an image"}</span>
                 <input
-                  type="file" accept="image/jpeg,image/png,image/gif,image/webp"
+                  type="file" accept="image/*"
                   style={{ display: "none" }} disabled={imageUploading}
                   onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
                 />
               </label>
+            )}
+            {cropFile && (
+              <ImageCropper
+                file={cropFile}
+                aspect={POSTER_ASPECT}
+                onCancel={() => setCropFile(null)}
+                onApply={onCropApplied}
+              />
             )}
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
@@ -626,7 +656,9 @@ const rowThumbPlaceholder = { width: "40px", height: "40px", borderRadius: "8px"
 const posterDropzone = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, height: "100px", borderRadius: "10px", border: "1.5px dashed #d1d5db", background: "#F7FAFF", color: "#6b7280", fontSize: "13px", cursor: "pointer", textAlign: "center" };
 const posterPreviewWrap = { position: "relative", borderRadius: "10px", overflow: "hidden", border: "1px solid #e6ecf5" };
 const posterPreviewImg = { width: "100%", height: "140px", objectFit: "cover", display: "block" };
-const posterRemoveBtn = { position: "absolute", top: 8, right: 8, background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer" };
+const posterActions = { position: "absolute", top: 8, right: 8, display: "flex", gap: 6 };
+const posterRemoveBtn = { background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer" };
+const posterChangeBtn = { background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer", display: "inline-flex", alignItems: "center" };
 
 const overlay = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 };
 const modal = { background: "#fff", borderRadius: "16px", padding: "26px", width: "460px", maxWidth: "90%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 50px rgba(0,0,0,0.25)" };

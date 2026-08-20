@@ -60,10 +60,14 @@ $readers = [
     "image/png"  => "imagecreatefrompng",
     "image/gif"  => "imagecreatefromgif",
     "image/webp" => "imagecreatefromwebp",
+    "image/bmp"  => "imagecreatefrombmp",
+    "image/x-ms-bmp" => "imagecreatefrombmp",
+    "image/avif" => "imagecreatefromavif",
 ];
 if (!isset($readers[$mime]) || !function_exists($readers[$mime])) {
     http_response_code(400);
-    echo json_encode(["error" => "Please use a JPG, PNG, GIF, or WEBP image."]);
+    $why = isset($readers[$mime]) ? "your server's PHP build lacks support for it" : "that type isn't recognised";
+    echo json_encode(["error" => "Please use a JPG, PNG, GIF, WEBP, BMP, or AVIF image. (HEIC/HEIF photos from iPhones aren't supported — export as JPG first.) [Detected: {$mime}, {$why}]"]);
     exit;
 }
 
