@@ -1,0 +1,15 @@
+# Frontend is deployed separately (Vercel) — keep it out of the API image.
+my-app-frontend/
+
+# Local/dev artefacts
+node_modules/
+.git/
+.claude/
+*.zip
+*.apk
+
+# Never ship real credentials; Render supplies them as environment variables.
+my-app-backend/config/db_credentials.php
+
+# Troubleshooting tool — must not reach production (see task list).
+my-app-backend/api/smtp_test.php

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -l \"my-app-backend/config/db.php\")",
+      "Bash(php -l \"my-app-backend/config/db_credentials.php\")",
+      "Read(//c/xammpp/php/**)",
+      "Read(//c/xampp/php/**)"
+    ]
+  }
+}

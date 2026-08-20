@@ -1,0 +1,44 @@
+# ============================================================
+#  TCIMS backend — repository for the Render deployment
+#
+#  This repo contains the Dockerfile and my-app-backend/ only.
+#  The React frontend has its own git repo and is deployed
+#  separately (Vercel), so it is excluded here.
+# ============================================================
+
+# ---- SECRETS — never commit ----
+# Real database and mail credentials. The live host supplies these as
+# environment variables; these files exist only on a developer machine.
+my-app-backend/config/db_credentials.php
+my-app-backend/config/smtp_credentials.php
+.env
+.env.local
+*.pem
+*.key
+
+# ---- Frontend (separate repo, deployed to Vercel) ----
+my-app-frontend/
+
+# ---- Uploaded files ----
+# User uploads are runtime data, not source. Note that Render's free tier
+# wipes these on restart — see RENDER_DEPLOYMENT_FOR_EMMAN.md section 6.
+my-app-backend/uploads/*
+!my-app-backend/uploads/.gitkeep
+!my-app-backend/uploads/.htaccess
+
+# ---- Troubleshooting tools — remove before final handover ----
+my-app-backend/api/smtp_test.php
+
+# ---- Local / editor noise ----
+node_modules/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+*.zip
+*.apk
+
+# ---- Database dumps (may contain real visitor data) ----
+*.sql.gz
+tcims_db*.sql

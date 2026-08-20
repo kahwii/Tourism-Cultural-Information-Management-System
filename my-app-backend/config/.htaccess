@@ -1,0 +1,10 @@
+# Config files (db credentials, SMTP password, API keys) are only ever
+# included by the API through the filesystem — never fetched over HTTP.
+# Deny all direct web access as defense-in-depth.
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>
