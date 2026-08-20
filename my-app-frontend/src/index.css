@@ -1,0 +1,459 @@
+:root {
+  --text: #6b6375;
+  --text-h: #08060d;
+  --bg: #fff;
+  --border: #e5e4e7;
+  --code-bg: #f4f3ec;
+  --accent: #aa3bff;
+  --accent-bg: rgba(170, 59, 255, 0.1);
+  --accent-border: rgba(170, 59, 255, 0.5);
+  --social-bg: rgba(244, 243, 236, 0.5);
+  --shadow:
+    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+
+  --sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 15px/1.5 var(--sans);
+  letter-spacing: normal;
+  color-scheme: light;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  @media (max-width: 1024px) {
+    font-size: 16px;
+  }
+}
+
+body {
+  margin: 0;
+  background: #f1f5f9;
+  color: #374151;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  text-align: left;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+h1,
+h2 {
+  font-family: var(--heading);
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+h1 { font-size: 26px; letter-spacing: -0.3px; margin: 0; font-weight: 700; }
+h2 { font-size: 20px; letter-spacing: -0.2px; margin: 0; font-weight: 700; }
+p {
+  margin: 0;
+}
+
+code,
+.counter {
+  font-family: var(--mono);
+  display: inline-flex;
+  border-radius: 4px;
+  color: var(--text-h);
+}
+
+code {
+  font-size: 15px;
+  line-height: 135%;
+  padding: 4px 8px;
+  background: var(--code-bg);
+}
+
+/* =====================================================================
+   TCIMS DESIGN SYSTEM — City of Mandaluyong
+   Palette anchored on the official city seal: deep blue + heritage gold.
+   ===================================================================== */
+:root {
+  /* Primary — Mandaluyong blue */
+  --mnd-900: #0A2559;
+  --mnd-800: #123471;
+  --mnd-700: #1A4699;
+  --mnd-600: #1D4ED8;   /* primary actions */
+  --mnd-500: #2563EB;
+  --mnd-300: #93B4FF;
+  --mnd-100: #DBE7FF;
+  --mnd-50:  #EFF5FF;
+
+  /* Accent — heritage gold (city seal) */
+  --gold-700: #A66A00;
+  --gold-600: #C8860D;
+  --gold-500: #EAA31E;  /* accent highlights */
+  --gold-300: #F7CD6B;
+  --gold-50:  #FFF8E7;
+
+  /* Semantic */
+  --ok-600: #15803D;  --ok-500: #22C55E;  --ok-50: #F0FDF4;
+  --warn-600: #B45309; --warn-500: #F59E0B; --warn-50: #FFFBEB;
+  --bad-600: #B91C1C; --bad-500: #EF4444;  --bad-50: #FEF2F2;
+
+  /* Neutrals */
+  --ink-900: #0F172A; --ink-700: #334155; --ink-500: #64748B; --ink-400: #94A3B8;
+  --line: #E6ECF5;    --surface: #FFFFFF; --canvas: #F5F8FC;
+
+  /* Elevation */
+  --sh-sm: 0 1px 2px rgba(15,23,42,.06);
+  --sh-md: 0 4px 14px rgba(15,23,42,.07);
+  --sh-lg: 0 12px 32px rgba(15,23,42,.10);
+  --sh-blue: 0 8px 22px rgba(29,78,216,.22);
+
+  --ease: cubic-bezier(.4, 0, .2, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+}
+
+body { background: var(--canvas); }
+
+/* ---------- Entrance animations ---------- */
+@keyframes tcimsFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes tcimsScaleIn {
+  from { opacity: 0; transform: scale(.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes tcimsSlideIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes tcimsShimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+@keyframes tcimsGrowX {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@keyframes tcimsSpin { to { transform: rotate(360deg); } }
+
+.fade-up { animation: tcimsFadeUp .4s var(--ease-out) both; }
+
+/* Staggered reveal — children animate in sequence */
+.tc-stagger > * { animation: tcimsFadeUp .45s var(--ease-out) both; }
+.tc-stagger > *:nth-child(1) { animation-delay: .04s; }
+.tc-stagger > *:nth-child(2) { animation-delay: .10s; }
+.tc-stagger > *:nth-child(3) { animation-delay: .16s; }
+.tc-stagger > *:nth-child(4) { animation-delay: .22s; }
+.tc-stagger > *:nth-child(5) { animation-delay: .28s; }
+.tc-stagger > *:nth-child(6) { animation-delay: .34s; }
+
+/* ---------- Cards ---------- */
+.card-hover {
+  position: relative;
+  transition: transform .22s var(--ease-out), box-shadow .22s var(--ease-out), border-color .22s var(--ease);
+}
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--sh-lg);
+  border-color: var(--mnd-100);
+}
+
+/* KPI card — gold rail sweeps in, icon lifts */
+.tc-kpi { position: relative; overflow: hidden; }
+.tc-kpi::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+  background: linear-gradient(90deg, var(--mnd-600), var(--gold-500));
+  transform: scaleX(0); transform-origin: left;
+  transition: transform .35s var(--ease-out);
+}
+.tc-kpi:hover::after { transform: scaleX(1); }
+.tc-kpi .tc-kpi-icon { transition: transform .28s var(--ease-out), box-shadow .28s var(--ease); }
+.tc-kpi:hover .tc-kpi-icon { transform: translateY(-2px) scale(1.06); }
+.tc-kpi-value { font-variant-numeric: tabular-nums; }
+
+/* ---------- Page header ---------- */
+.tc-page-icon {
+  position: relative;
+  background: linear-gradient(135deg, var(--mnd-600), var(--mnd-800)) !important;
+  box-shadow: var(--sh-blue);
+  transition: transform .3s var(--ease-out);
+}
+.tc-page-icon:hover { transform: rotate(-4deg) scale(1.04); }
+
+/* ---------- Tables ---------- */
+.tc-table { border-collapse: separate; border-spacing: 0; }
+.tc-table thead th {
+  position: sticky; top: 0; z-index: 1;
+  background: linear-gradient(180deg, #FBFCFE, #F4F7FC);
+  font-weight: 700 !important; color: var(--ink-500) !important;
+  text-transform: uppercase; font-size: 11.5px !important; letter-spacing: .6px !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+.tc-table tbody tr {
+  transition: background-color .16s var(--ease), box-shadow .16s var(--ease);
+}
+.tc-table tbody tr:hover { background: var(--mnd-50); }
+.tc-table tbody tr td:first-child {
+  box-shadow: inset 3px 0 0 transparent;
+  transition: box-shadow .18s var(--ease-out);
+}
+.tc-table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--gold-500); }
+.tc-table tbody tr { animation: tcimsFadeUp .3s var(--ease-out) both; }
+.tc-table tbody tr:nth-child(1){animation-delay:.02s} .tc-table tbody tr:nth-child(2){animation-delay:.04s}
+.tc-table tbody tr:nth-child(3){animation-delay:.06s} .tc-table tbody tr:nth-child(4){animation-delay:.08s}
+.tc-table tbody tr:nth-child(5){animation-delay:.10s} .tc-table tbody tr:nth-child(6){animation-delay:.12s}
+.tc-table tbody tr:nth-child(7){animation-delay:.14s} .tc-table tbody tr:nth-child(8){animation-delay:.16s}
+
+/* ---------- Buttons ---------- */
+.tc-btn {
+  position: relative; overflow: hidden;
+  transition: transform .14s var(--ease-out), box-shadow .2s var(--ease), filter .2s var(--ease);
+}
+.tc-btn:hover { transform: translateY(-1px); filter: brightness(1.06); box-shadow: var(--sh-md); }
+.tc-btn:active { transform: translateY(0) scale(.98); }
+.tc-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; filter: none; }
+/* light sweep on primary buttons */
+.tc-btn-primary::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,.28) 50%, transparent 70%);
+  transform: translateX(-100%);
+}
+.tc-btn-primary:hover::before { transform: translateX(100%); transition: transform .6s var(--ease-out); }
+
+/* ---------- Sidebar nav ---------- */
+.tc-nav-item {
+  position: relative;
+  transition: background-color .18s var(--ease), color .18s var(--ease), padding-left .18s var(--ease-out);
+}
+.tc-nav-item:hover { background: var(--mnd-50); color: var(--mnd-700); padding-left: 18px; }
+.tc-nav-item svg { transition: transform .22s var(--ease-out); }
+.tc-nav-item:hover svg { transform: scale(1.12); }
+.tc-nav-item.is-active::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 4px;
+  border-radius: 0 4px 4px 0; background: var(--gold-500);
+  animation: tcimsGrowX .3s var(--ease-out) both;
+}
+
+/* ---------- Modals ---------- */
+.tc-modal { animation: tcimsScaleIn .28s var(--ease-out) both; }
+
+/* ---------- Badges ---------- */
+.tc-badge { transition: transform .16s var(--ease-out), box-shadow .16s var(--ease); }
+.tc-badge:hover { transform: translateY(-1px); box-shadow: var(--sh-sm); }
+
+/* ---------- Loading skeleton / spinner ---------- */
+.tc-skeleton {
+  background: linear-gradient(90deg, #EEF2F7 25%, #F8FAFC 50%, #EEF2F7 75%);
+  background-size: 600px 100%;
+  animation: tcimsShimmer 1.3s infinite linear;
+  border-radius: 8px;
+}
+.tc-spinner {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 3px solid var(--mnd-100); border-top-color: var(--mnd-600);
+  animation: tcimsSpin .7s linear infinite; margin: 0 auto 12px;
+}
+
+/* ---------- Progress bars (dashboard rankings) ---------- */
+.tc-bar-fill {
+  transform-origin: left;
+  animation: tcimsGrowX .8s var(--ease-out) both;
+  background: linear-gradient(90deg, var(--mnd-600), var(--gold-500)) !important;
+}
+
+/* ---------- Inputs ---------- */
+.tc-input, .tc-search {
+  transition: border-color .18s var(--ease), box-shadow .18s var(--ease), background-color .18s var(--ease);
+}
+.tc-input:focus-within, .tc-search:focus-within,
+.tc-input:focus, .tc-search:focus {
+  border-color: var(--mnd-300) !important;
+  box-shadow: 0 0 0 3px rgba(29,78,216,.12);
+  background: #fff !important;
+  outline: none;
+}
+
+/* =====================================================================
+   TOP-NAV SHELL — tourist & establishment portals
+   ===================================================================== */
+.tc-topnav {
+  position: relative;
+  transition: background-color .18s var(--ease), color .18s var(--ease), transform .18s var(--ease-out);
+}
+.tc-topnav:hover { background: rgba(255,255,255,.14); transform: translateY(-1px); }
+.tc-topnav::after {
+  content: ""; position: absolute; left: 14px; right: 14px; bottom: 4px; height: 2.5px;
+  border-radius: 2px; background: var(--gold-500);
+  transform: scaleX(0); transform-origin: center;
+  transition: transform .28s var(--ease-out);
+}
+.tc-topnav.is-active::after { transform: scaleX(1); }
+
+/* gold underline accent on the portal header */
+.tc-portal-bar { box-shadow: inset 0 -3px 0 rgba(234,163,30,.55), 0 2px 14px rgba(10,37,89,.16); }
+
+/* brand mark gets a gentle entrance */
+.tc-brand-mark { animation: tcimsFadeUp .5s var(--ease-out) both; }
+
+/* Content area of a portal page fades in on route change.
+   IMPORTANT: opacity only — no transform. A transformed ancestor becomes the
+   containing block for position:fixed children, which would break any modal
+   overlay rendered inside this <main>. */
+@keyframes tcFadeOnly { from { opacity: 0; } to { opacity: 1; } }
+.tc-page { animation: tcFadeOnly .32s var(--ease-out) both; }
+
+/* Safety net: a modal backdrop must always fill the viewport, never an ancestor. */
+.tc-modal-backdrop { animation: tcFadeOnly .2s var(--ease) both; }
+
+/* tiles / place cards (tourist explore, events, trail) */
+.tc-tile {
+  transition: transform .24s var(--ease-out), box-shadow .24s var(--ease-out), border-color .22s var(--ease);
+}
+.tc-tile:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(15,23,42,.13);
+  border-color: var(--mnd-100);
+}
+.tc-tile img { transition: transform .45s var(--ease-out); }
+.tc-tile:hover img { transform: scale(1.05); }
+
+/* notification pill pulse */
+@keyframes tcPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(234,163,30,.55); }
+  50%      { box-shadow: 0 0 0 6px rgba(234,163,30,0); }
+}
+.tc-pulse { animation: tcPulse 2s ease-in-out infinite; }
+
+/* =====================================================================
+   LOGIN / AUTH SCREEN
+   ===================================================================== */
+@keyframes tcDrift {
+  0%   { transform: translate(0,0) scale(1); }
+  50%  { transform: translate(28px,-26px) scale(1.07); }
+  100% { transform: translate(0,0) scale(1); }
+}
+@keyframes tcSeal {
+  0%   { opacity: 0; transform: scale(.82) rotate(-8deg); }
+  60%  { opacity: 1; transform: scale(1.04) rotate(2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes tcSlideRight {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes tcShimmerLine {
+  0%   { background-position: -240px 0; }
+  100% { background-position: 240px 0; }
+}
+
+/* animated ambient blobs behind the hero panel */
+.tc-blob {
+  position: absolute; border-radius: 50%; filter: blur(46px); pointer-events: none;
+  animation: tcDrift 13s ease-in-out infinite;
+}
+.tc-blob-2 { animation-duration: 17s; animation-delay: -5s; }
+
+.tc-seal { animation: tcSeal .8s var(--ease-out) both; }
+
+/* hero copy + form fields reveal in sequence */
+.tc-reveal > * { animation: tcimsFadeUp .5s var(--ease-out) both; }
+.tc-reveal > *:nth-child(1) { animation-delay: .10s; }
+.tc-reveal > *:nth-child(2) { animation-delay: .18s; }
+.tc-reveal > *:nth-child(3) { animation-delay: .26s; }
+.tc-reveal > *:nth-child(4) { animation-delay: .34s; }
+.tc-reveal > *:nth-child(5) { animation-delay: .42s; }
+.tc-reveal > *:nth-child(6) { animation-delay: .50s; }
+.tc-reveal > *:nth-child(7) { animation-delay: .58s; }
+.tc-reveal > *:nth-child(8) { animation-delay: .66s; }
+
+.tc-slide-right { animation: tcSlideRight .55s var(--ease-out) both; }
+
+/* login form inputs */
+.tc-field {
+  transition: border-color .2s var(--ease), box-shadow .2s var(--ease), background-color .2s var(--ease);
+}
+.tc-field:focus-within {
+  border-color: var(--mnd-500) !important;
+  box-shadow: 0 0 0 4px rgba(29,78,216,.12);
+  background: #fff !important;
+}
+.tc-field:focus-within .tc-field-icon { color: var(--mnd-600); transform: scale(1.08); }
+.tc-field-icon { color: #94A3B8; transition: color .2s var(--ease), transform .2s var(--ease-out); }
+
+/* Google button */
+.tc-google { transition: border-color .2s var(--ease), box-shadow .2s var(--ease), transform .16s var(--ease-out); }
+.tc-google:hover { border-color: var(--mnd-300) !important; box-shadow: var(--sh-md); transform: translateY(-1px); }
+.tc-google:active { transform: translateY(0) scale(.99); }
+
+/* hero feature rows */
+.tc-feat { transition: transform .22s var(--ease-out); }
+.tc-feat:hover { transform: translateX(4px); }
+
+/* role picker options */
+.tc-role {
+  transition: border-color .2s var(--ease), box-shadow .2s var(--ease), transform .18s var(--ease-out), background-color .2s var(--ease);
+}
+.tc-role:hover {
+  border-color: var(--mnd-300) !important; background: var(--mnd-50) !important;
+  transform: translateY(-2px); box-shadow: var(--sh-md);
+}
+
+
+/* Any animated container that may hold a position:fixed modal must not keep a
+   lingering transform after its entrance animation. Clearing it on completion
+   keeps overlays anchored to the viewport. */
+.tc-page, .tc-modal-backdrop { transform: none !important; }
+
+/* Accessibility: honour reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* Mobile: let wide data tables scroll sideways instead of overflowing the page.
+   Desktop (>768px) is unaffected. */
+@media (max-width: 768px) {
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+}
+
+/* Prevent any stray fixed-width layout from pushing the whole page sideways
+   on phones (content getting cut off at the screen edge with blank space
+   instead of wrapping/stacking). Elements that need their own horizontal
+   scroll (tables above) opt back in explicitly via overflow-x: auto. */
+html, body { overflow-x: hidden; max-width: 100%; }
+
+/* Safety net for future dashboard/report grids: this codebase's convention
+   for multi-column layouts is `repeat(auto-fit, minmax(Npx, 1fr))`, which
+   collapses to fewer columns automatically as the viewport shrinks — no
+   media query needed. If a new grid is ever added the old fixed way
+   (`repeat(2/3/4, ...)`), this forces it to a single column on phones so it
+   fails safe instead of overflowing or getting cut off. */
+@media (max-width: 640px) {
+  [style*="grid-template-columns: repeat(2"],
+  [style*="grid-template-columns: repeat(3"],
+  [style*="grid-template-columns: repeat(4"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Responsive indent for the Sentiment Analysis low-rating alert list — full
+   40px icon-aligned indent on desktop, tighter on phones so row content
+   doesn't get squeezed into a narrow column. */
+.tc-alert-indent { margin-left: 40px; }
+@media (max-width: 480px) {
+  .tc-alert-indent { margin-left: 14px; }
+}

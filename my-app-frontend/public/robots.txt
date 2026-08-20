@@ -1,0 +1,13 @@
+# TCIMS — City of Mandaluyong (CCAT)
+# Allow search engines to crawl the public pages.
+User-agent: *
+Allow: /$
+Allow: /login
+Allow: /register
+# Keep private dashboards out of search results.
+Disallow: /admin
+Disallow: /tourist
+Disallow: /establishment
+Disallow: /dashboard
+
+Sitemap: https://tcimsmandaluyong.infinityfree.me/sitemap.xml

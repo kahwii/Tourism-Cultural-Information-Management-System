@@ -1,0 +1,44 @@
+# SPA routing for React Router on Apache (InfinityFree).
+# Serve real files/folders as-is; send everything else to index.html.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# ---------------------------------------------------------------
+# Caching strategy — this matters a lot on this project.
+#
+# Vite fingerprints every build (index-a1b2c3.js), so asset files are
+# immutable and safe to cache for a year. index.html is NOT fingerprinted:
+# it's the file that points at the current bundle. If a browser caches it,
+# the user keeps loading a stale bundle even after a fresh deploy — which is
+# exactly what caused "my fix isn't showing up" over and over here.
+#
+# So: never cache index.html, cache everything hashed aggressively.
+# ---------------------------------------------------------------
+<IfModule mod_headers.c>
+  <FilesMatch "index\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # Hashed build assets — safe to cache long-term.
+  <FilesMatch "\.(js|css|woff2?|ttf|eot|svg)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType image/png "access plus 1 month"
+  ExpiresByType image/jpeg "access plus 1 month"
+  ExpiresByType image/webp "access plus 1 month"
+</IfModule>

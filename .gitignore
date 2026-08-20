@@ -1,9 +1,5 @@
 # ============================================================
-#  TCIMS backend — repository for the Render deployment
-#
-#  This repo contains the Dockerfile and my-app-backend/ only.
-#  The React frontend has its own git repo and is deployed
-#  separately (Vercel), so it is excluded here.
+#  TCIMS — full repository (backend for Render + frontend for Vercel)
 # ============================================================
 
 # ---- SECRETS — never commit ----
@@ -16,8 +12,13 @@ my-app-backend/config/smtp_credentials.php
 *.pem
 *.key
 
-# ---- Frontend (separate repo, deployed to Vercel) ----
-my-app-frontend/
+# ---- Frontend build output / local env ----
+my-app-frontend/dist/
+my-app-frontend/dist-ssr/
+my-app-frontend/.env
+my-app-frontend/.env.local
+my-app-frontend/.env.production
+!my-app-frontend/.env.example
 
 # ---- Uploaded files ----
 # User uploads are runtime data, not source. Note that Render's free tier
