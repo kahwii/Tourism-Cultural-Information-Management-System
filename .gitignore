@@ -26,6 +26,13 @@ my-app-frontend/.env.production
 my-app-backend/uploads/*
 !my-app-backend/uploads/.gitkeep
 !my-app-backend/uploads/.htaccess
+# EXCEPT uploads/places/ — these are the ~44 seed photos for the tourist
+# spots / heritage sites migration (migrate_places.php), copied from the
+# frontend's old public/places/ folder. They're reference assets that ship
+# with the repo, not ephemeral runtime uploads, and Render needs them on
+# disk for the migration to find them (its filesystem starts empty).
+!my-app-backend/uploads/places/
+!my-app-backend/uploads/places/*.jpg
 
 # ---- Troubleshooting tools — remove before final handover ----
 my-app-backend/api/smtp_test.php

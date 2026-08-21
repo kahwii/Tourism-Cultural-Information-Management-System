@@ -1,34 +1,45 @@
 import { useState, useEffect, useMemo } from "react";
-import { TOURIST_SPOTS, HERITAGE_SITES } from "../data/tcimsData";
-import { apiFeedbackCreate, apiFeedbackMine, apiVisitsMine, apiVisitToggle, apiList } from "../api/api";
+import { apiFeedbackCreate, apiFeedbackMine, apiVisitsMine, apiVisitToggle, apiList, fileUrl } from "../api/api";
 import { websiteHref, telHref, hasContact } from "../utils/contact";
 import { computePoints, tierFor } from "../utils/gamification";
 import { toast } from "../utils/toast";
 import { useLanguage } from "../context/LanguageContext";
 import { HERITAGE_FIL, spotDescription, categoryLabel, bucketLabel } from "../i18n/translations";
 
-/* ---- image filename from a place name: "San Felipe Neri Church" -> "san-felipe-neri-church" ---- */
+/* ---- legacy image filename fallback (from the old static file convention),
+   used only for a place that hasn't had a photo uploaded through the admin
+   yet: "San Felipe Neri Church" -> "/places/san-felipe-neri-church.jpg" ---- */
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-const imgFor = (name) => `/places/${slug(name)}.jpg`;
+const legacyImgFor = (name) => `/places/${slug(name)}.jpg`;
+// A photo uploaded through the admin (Tourist Spots / Heritage Sites) always
+// wins; the bundled /places/*.jpg files are a fallback only.
+const placeImgSrc = (p) => (p.image ? fileUrl(p.image) : legacyImgFor(p.name));
 
 /* ---- merge spots + heritage, dedupe by normalized name ---- */
 const normalize = (s) => s.toLowerCase().replace(/\bparish\b/g, "").replace(/[^a-z0-9]+/g, " ").trim();
-// Built per-render (memoized on `lang`) so heritage-church descriptions can
-// swap to their Filipino translation when the tourist toggles language.
-// Landmarks/institutions/schools/parks don't have a curated Filipino
-// description yet, so they fall back to the English text either way.
-const buildPlaces = (lang) => {
+// Built per-render (memoized on `lang` + the DB rows) so heritage-church
+// descriptions can swap to their Filipino translation when the tourist
+// toggles language. Landmarks/institutions/schools/parks don't have a
+// curated Filipino description yet, so they fall back to the English text.
+//
+// `heritageSites` / `touristSpots` come from the database (heritage_sites /
+// tourist_spots tables, via apiList) — this used to read a hardcoded array
+// from tcimsData.js instead, which meant editing a place in the admin had
+// zero effect on what tourists actually saw here.
+const buildPlaces = (lang, heritageSites, touristSpots) => {
   const raw = [
-    ...HERITAGE_SITES.map(h => ({
+    ...heritageSites.map(h => ({
       name: h.name, category: h.category, location: h.location,
       description: (lang === "fil" && HERITAGE_FIL[h.name]?.description) || h.description,
-      coordinates: h.coordinates, est: h.est,
+      coordinates: h.coordinates, est: h.est, image: h.image || "",
     })),
-    ...TOURIST_SPOTS.map(s => ({
-      name: s.name, category: s.type, location: `${s.brgy}, ${s.city}`,
-      description: spotDescription(s.type, s.city, lang),
-      coordinates: s.coordinates, est: "—",
-    })),
+    ...touristSpots
+      .filter(s => (s.status || "Active") === "Active")
+      .map(s => ({
+        name: s.name, category: s.category, location: s.address,
+        description: spotDescription(s.category || "Others", "Mandaluyong City", lang),
+        coordinates: s.coordinates, est: "—", image: s.image || "",
+      })),
   ];
   const seen = new Set(); const out = [];
   for (const p of raw) { const k = normalize(p.name); if (seen.has(k)) continue; seen.add(k); out.push(p); }
@@ -56,35 +67,54 @@ const GRAD = {
 };
 export default function TouristExplore() {
   const { lang, t } = useLanguage();
-  const PLACES = useMemo(() => buildPlaces(lang), [lang]);
+  // Heritage sites + tourist spots now come from the database (the admin
+  // pages actually affect what's shown here, instead of a hardcoded list).
+  const [heritageSites, setHeritageSites] = useState([]);
+  const [touristSpots, setTouristSpots] = useState([]);
+  const [placesLoaded, setPlacesLoaded] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      apiList("heritage_sites").catch(() => []),
+      apiList("tourist_spots").catch(() => []),
+    ]).then(([h, s]) => {
+      if (cancelled) return;
+      setHeritageSites(Array.isArray(h) ? h : []);
+      setTouristSpots(Array.isArray(s) ? s : []);
+      setPlacesLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+  const PLACES = useMemo(() => buildPlaces(lang, heritageSites, touristSpots), [lang, heritageSites, touristSpots]);
   const BUCKETS = useMemo(() => ["All", ...Array.from(new Set(PLACES.map(p => bucketOf(p.category))))], [PLACES]);
   const [search, setSearch] = useState("");
   const [bucket, setBucket] = useState("All");
   const [visited, setVisited] = useState([]);
   const [detail, setDetail] = useState(null);
-  // Contact details live in the DB directory tables, but the cards on this page
-  // are built from the static reference data — so they're fetched separately
-  // and matched by normalised name. Failure is non-fatal: the page simply shows
-  // no contact block rather than breaking the whole Explore view.
+  // Contact details for restaurants/hotels/businesses live in separate
+  // directory tables and are matched onto a place by normalised name.
+  // Tourist spots carry their own contact_no/email/website directly (already
+  // fetched above via touristSpots), so only the other three need fetching
+  // here. Failure is non-fatal: the page simply shows no contact block
+  // rather than breaking the whole Explore view.
   const [contacts, setContacts] = useState({});
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      apiList("tourist_spots").catch(() => []),
       apiList("restaurants").catch(() => []),
       apiList("hotels").catch(() => []),
       apiList("tourism_businesses").catch(() => []),
     ]).then((sets) => {
       if (cancelled) return;
       const map = {};
-      sets.flat().forEach((r) => {
+      [...touristSpots, ...sets.flat()].forEach((r) => {
         if (!r?.name || !hasContact(r)) return;
         map[normalize(r.name)] = { contact_no: r.contact_no, email: r.email, website: r.website };
       });
       setContacts(map);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [touristSpots]);
   const contactFor = (name) => contacts[normalize(name)] || null;
   const [fb, setFb] = useState(null);
   const [rating, setRating] = useState(5);
@@ -198,7 +228,7 @@ export default function TouristExplore() {
           return (
             <div key={i} style={card} className="card-hover" onClick={() => setDetail(p)}>
               <div style={{ ...cardHead, background: GRAD[b] }}>
-                <img src={imgFor(p.name)} alt="" style={headImg} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                <img src={placeImgSrc(p)} alt="" style={headImg} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                 <div style={headScrim} />
                 {p.est && p.est !== "—" && <span style={{ ...estBadge, zIndex: 2 }}>Est. {p.est}</span>}
                 {isV && <span style={{ ...visitedBadge, zIndex: 2 }}>✓ {t("visited")}</span>}
@@ -218,7 +248,11 @@ export default function TouristExplore() {
             </div>
           );
         })}
-        {filtered.length === 0 && <div style={{ color: "#9ca3af", textAlign: "center", gridColumn: "1/-1" }}>{t("noPlacesFound")}</div>}
+        {filtered.length === 0 && (
+          <div style={{ color: "#9ca3af", textAlign: "center", gridColumn: "1/-1" }}>
+            {placesLoaded ? t("noPlacesFound") : "Loading places…"}
+          </div>
+        )}
       </div>
 
       {/* DETAIL MODAL */}
@@ -226,7 +260,7 @@ export default function TouristExplore() {
         <div style={overlay} className="tc-modal-backdrop" onClick={() => setDetail(null)}>
           <div style={detailModal} onClick={(e) => e.stopPropagation()}>
             <div style={{ ...detailHero, background: GRAD[bucketOf(detail.category)] }}>
-              <img src={imgFor(detail.name)} alt="" style={headImg} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+              <img src={placeImgSrc(detail)} alt="" style={headImg} onError={(e) => { e.currentTarget.style.display = "none"; }} />
               <div style={headScrim} />
               <button style={{ ...closeBtn, zIndex: 2 }} className="tc-btn" onClick={() => setDetail(null)}>✕</button>
               <div style={{ marginTop: "auto", zIndex: 2 }}>

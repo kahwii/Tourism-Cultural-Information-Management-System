@@ -1,17 +1,27 @@
 import { useState, useEffect } from "react";
 import { useConfirm } from "./ConfirmDialog";
-import { apiList, apiCreate, apiUpdate, apiRemove } from "../api/api";
+import { apiList, apiCreate, apiUpdate, apiRemove, apiUploadPlaceImage, fileUrl } from "../api/api";
 import { toast } from "../utils/toast";
 import { isValidPhone, isValidEmail, isValidWebsite, websiteHref, telHref } from "../utils/contact";
 import Icon from "./Icon";
+import ImageCropper from "./ImageCropper";
 
 const TABLE = "tourist_spots";
 
+// Includes the original admin-authored options plus the categories actually
+// used by the places seeded from the old static list (migrate_places.php) —
+// so editing one of those doesn't silently blank/change its category because
+// the value wasn't in this dropdown.
 const CATEGORY_OPTIONS = [
-  "Historical/Cultural", "Church", "Park", "Mall", "Sports & Recreation", "Museum", "Special Events", "Others"
+  "Historical/Cultural", "Church", "Park", "Mall", "Sports & Recreation", "Museum", "Special Events", "Others",
+  "History and Culture", "Sports and Recreation Facilities", "Shopping",
 ];
 
-const EMPTY_FORM = { name: "", category: CATEGORY_OPTIONS[0], address: "", contact_no: "", email: "", website: "", status: "Active" };
+// Matches the photo preview's display ratio (modal content ~408px wide,
+// preview box 140px tall) — same convention as Events.jsx's poster cropper.
+const SPOT_ASPECT = 408 / 140;
+
+const EMPTY_FORM = { name: "", category: CATEGORY_OPTIONS[0], address: "", contact_no: "", email: "", website: "", status: "Active", coordinates: "", image: "" };
 
 export default function TouristSpots() {
   const [confirm, ConfirmUI] = useConfirm();
@@ -23,6 +33,8 @@ export default function TouristSpots() {
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [cropFile, setCropFile] = useState(null);
 
   const load = async () => {
     setLoading(true); setErr("");
@@ -48,10 +60,26 @@ export default function TouristSpots() {
     setForm({
       name: s.name, category: s.category || "", address: s.address || "",
       contact_no: s.contact_no || "", email: s.email || "", website: s.website || "",
-      status: s.status || "Active",
+      status: s.status || "Active", coordinates: s.coordinates || "", image: s.image || "",
     });
     setModalOpen(true);
   };
+
+  const onImageChosen = (file) => { if (file) setCropFile(file); };
+  const onCropApplied = async (blob) => {
+    setCropFile(null);
+    setImageUploading(true);
+    try {
+      const croppedFile = new File([blob], "spot.jpg", { type: "image/jpeg" });
+      const res = await apiUploadPlaceImage("tourist_spots", croppedFile, form.image || null);
+      setForm(f => ({ ...f, image: res.image }));
+    } catch (e) {
+      toast.error(e.message || "Failed to upload image.");
+    } finally {
+      setImageUploading(false);
+    }
+  };
+  const removeImage = () => setForm(f => ({ ...f, image: "" }));
 
   const save = async () => {
     if (!form.name.trim()) { toast.error("Please enter a name."); return; }
@@ -115,6 +143,7 @@ export default function TouristSpots() {
         <table style={tableStyle} className="tc-table">
           <thead>
             <tr>
+              <th style={thStyle}></th>
               <th style={thStyle}>NAME</th>
               <th style={thStyle}>CATEGORY</th>
               <th style={thStyle}>ADDRESS</th>
@@ -125,9 +154,14 @@ export default function TouristSpots() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }} colSpan={6}>Loading…</td></tr>
+              <tr><td style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }} colSpan={7}>Loading…</td></tr>
             ) : filtered.map((s) => (
               <tr key={s.id}>
+                <td style={tdStyle}>
+                  {s.image
+                    ? <img src={fileUrl(s.image)} alt="" style={rowThumb} />
+                    : <div style={rowThumbPlaceholder}><Icon name="pin" size={15} style={{ color: "#c7d0dc" }} /></div>}
+                </td>
                 <td style={{ ...tdStyle, fontWeight: 600, color: "#0F172A" }}>{s.name}</td>
                 <td style={tdStyle}>{s.category}</td>
                 <td style={tdStyle}>{s.address}</td>
@@ -150,7 +184,7 @@ export default function TouristSpots() {
               </tr>
             ))}
             {!loading && filtered.length === 0 && (
-              <tr><td style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }} colSpan={6}>No tourist spots found.</td></tr>
+              <tr><td style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }} colSpan={7}>No tourist spots found.</td></tr>
             )}
           </tbody>
         </table>
@@ -191,10 +225,45 @@ export default function TouristSpots() {
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
+            <p style={contactHint}>Inactive spots are hidden from the tourist Explore page.</p>
+
+            <label style={fieldLabel}>Coordinates (optional)</label>
+            <input style={fieldInput} value={form.coordinates} onChange={(e) => setForm({ ...form, coordinates: e.target.value })} placeholder="14.5794, 121.0359" />
+
+            <label style={fieldLabel}>Photo (optional)</label>
+            {form.image ? (
+              <div style={spotPhotoPreviewWrap}>
+                <img src={fileUrl(form.image)} alt="" style={spotPhotoPreviewImg} />
+                <div style={spotPhotoActions}>
+                  <label style={spotPhotoBtn} className="tc-btn">
+                    Change
+                    <input
+                      type="file" accept="image/*"
+                      style={{ display: "none" }} disabled={imageUploading}
+                      onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
+                    />
+                  </label>
+                  <button type="button" style={spotPhotoRemoveBtn} className="tc-btn" onClick={removeImage} disabled={imageUploading}>Remove</button>
+                </div>
+              </div>
+            ) : (
+              <label style={spotPhotoDropzone}>
+                <Icon name="pin" size={20} style={{ color: "#9ca3af" }} />
+                <span>{imageUploading ? "Uploading…" : "Click to upload a photo"}</span>
+                <input
+                  type="file" accept="image/*"
+                  style={{ display: "none" }} disabled={imageUploading}
+                  onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
+                />
+              </label>
+            )}
+            {cropFile && (
+              <ImageCropper file={cropFile} aspect={SPOT_ASPECT} onCancel={() => setCropFile(null)} onApply={onCropApplied} />
+            )}
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
               <button style={cancelBtn} className="tc-btn" onClick={() => setModalOpen(false)}>Cancel</button>
-              <button style={saveBtn} className="tc-btn tc-btn-primary" onClick={save} disabled={saving}>
+              <button style={saveBtn} className="tc-btn tc-btn-primary" onClick={save} disabled={saving || imageUploading}>
                 {saving ? "Saving…" : (editingId ? "Save Changes" : "Add Spot")}
               </button>
             </div>
@@ -255,3 +324,12 @@ const fieldLabel = { display: "block", fontSize: "13px", fontWeight: 600, color:
 const fieldInput = { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1d5db", fontSize: "14px", boxSizing: "border-box" };
 const cancelBtn = { background: "#f1f5f9", border: "none", borderRadius: "8px", padding: "10px 18px", cursor: "pointer", fontSize: "14px", color: "#374151" };
 const saveBtn = { background: "#1D4ED8", color: "#fff", border: "none", borderRadius: "8px", padding: "10px 18px", cursor: "pointer", fontSize: "14px", fontWeight: 600 };
+
+const rowThumb = { width: "40px", height: "40px", borderRadius: "8px", objectFit: "cover", flexShrink: 0, border: "1px solid #eef2f8" };
+const rowThumbPlaceholder = { width: "40px", height: "40px", borderRadius: "8px", flexShrink: 0, background: "#f7faff", border: "1px solid #eef2f8", display: "flex", alignItems: "center", justifyContent: "center" };
+const spotPhotoDropzone = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, height: "100px", borderRadius: "10px", border: "1.5px dashed #d1d5db", background: "#F7FAFF", color: "#6b7280", fontSize: "13px", cursor: "pointer", textAlign: "center" };
+const spotPhotoPreviewWrap = { position: "relative", borderRadius: "10px", overflow: "hidden", border: "1px solid #e6ecf5" };
+const spotPhotoPreviewImg = { width: "100%", height: "140px", objectFit: "cover", display: "block" };
+const spotPhotoActions = { position: "absolute", top: 8, right: 8, display: "flex", gap: 6 };
+const spotPhotoBtn = { background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer", display: "inline-flex", alignItems: "center" };
+const spotPhotoRemoveBtn = { background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer" };

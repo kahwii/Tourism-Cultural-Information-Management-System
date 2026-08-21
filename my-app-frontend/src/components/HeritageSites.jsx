@@ -1,9 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { useConfirm } from "./ConfirmDialog";
 import { HERITAGE_CATEGORIES } from "../data/tcimsData";
-import { apiList, apiCreate, apiUpdate, apiRemove } from "../api/api";
+import { apiList, apiCreate, apiUpdate, apiRemove, apiUploadPlaceImage, fileUrl } from "../api/api";
 import { toast } from "../utils/toast";
 import Icon from "./Icon";
+import ImageCropper from "./ImageCropper";
+
+// Matches the detail-view hero's display ratio (modal content ~740px wide,
+// hero ~160px tall) so what the admin crops is close to what it looks like
+// as the hero background everywhere it's shown.
+const SITE_ASPECT = 740 / 160;
 
 const STATUS_OPTIONS = ["Well-maintained", "Active", "Under Restoration", "At Risk"];
 
@@ -27,14 +33,14 @@ const CATEGORY_COLOR = {
 const colorFor = (cat) => CATEGORY_COLOR[cat] || "#64748b";
 
 const EMPTY_FORM = {
-  name: "", category: HERITAGE_CATEGORIES[0], est: "", location: "",
+  name: "", category: HERITAGE_CATEGORIES[0], tagline: "", est: "", location: "",
   description: "", significance: "", status: "Well-maintained", coordinates: "14.5794, 121.0359", image: ""
 };
 
 // background for a card/hero: real photo if available, else category gradient
 const headerBg = (s) =>
   s.image
-    ? "linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.55)), url(" + s.image + ") center/cover no-repeat"
+    ? "linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.55)), url(" + fileUrl(s.image) + ") center/cover no-repeat"
     : gradientFor(s.category);
 
 export default function HeritageSites() {
@@ -49,6 +55,8 @@ export default function HeritageSites() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [cropFile, setCropFile] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
@@ -71,10 +79,26 @@ export default function HeritageSites() {
   const openAdd = () => { setEditingId(null); setForm(EMPTY_FORM); setModalOpen(true); };
   const openEdit = (s) => {
     setEditingId(s.id);
-    setForm({ name: s.name, category: s.category, est: s.est, location: s.location, description: s.description, significance: s.significance, status: s.status, coordinates: s.coordinates, image: s.image || "" });
+    setForm({ name: s.name, category: s.category, tagline: s.tagline || "", est: s.est, location: s.location, description: s.description, significance: s.significance, status: s.status, coordinates: s.coordinates, image: s.image || "" });
     setDetail(null);
     setModalOpen(true);
   };
+
+  const onImageChosen = (file) => { if (file) setCropFile(file); };
+  const onCropApplied = async (blob) => {
+    setCropFile(null);
+    setImageUploading(true);
+    try {
+      const croppedFile = new File([blob], "site.jpg", { type: "image/jpeg" });
+      const res = await apiUploadPlaceImage("heritage_sites", croppedFile, form.image || null);
+      setForm(f => ({ ...f, image: res.image }));
+    } catch (e) {
+      toast.error(e.message || "Failed to upload image.");
+    } finally {
+      setImageUploading(false);
+    }
+  };
+  const removeImage = () => setForm(f => ({ ...f, image: "" }));
 
   const saveSite = async () => {
     if (!form.name.trim()) { toast.error("Please enter a site name."); return; }
@@ -281,16 +305,44 @@ export default function HeritageSites() {
               {HERITAGE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
 
+            <label style={fieldLabel}>Tagline (optional)</label>
+            <input style={fieldInput} value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} placeholder="e.g. Established 1863 · Oldest in the city" />
+
             <label style={fieldLabel}>Established (year)</label>
             <input style={fieldInput} value={form.est} onChange={(e) => setForm({ ...form, est: e.target.value })} placeholder="e.g. 1863" />
 
             <label style={fieldLabel}>Location</label>
             <input style={fieldInput} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
 
-            <label style={fieldLabel}>Image URL or path (optional)</label>
-            <input style={fieldInput} value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} placeholder="/heritage/san-felipe.jpg  or  https://..." />
-            {form.image && (
-              <div style={{ marginTop: 8, height: 90, borderRadius: 8, backgroundImage: "url(" + form.image + ")", backgroundSize: "cover", backgroundPosition: "center", border: "1px solid #e6ecf5" }} />
+            <label style={fieldLabel}>Photo (optional)</label>
+            {form.image ? (
+              <div style={sitePhotoPreviewWrap}>
+                <div style={{ ...sitePhotoPreviewImg, backgroundImage: "url(" + fileUrl(form.image) + ")" }} />
+                <div style={sitePhotoActions}>
+                  <label style={sitePhotoBtn} className="tc-btn">
+                    Change
+                    <input
+                      type="file" accept="image/*"
+                      style={{ display: "none" }} disabled={imageUploading}
+                      onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
+                    />
+                  </label>
+                  <button type="button" style={sitePhotoRemoveBtn} className="tc-btn" onClick={removeImage} disabled={imageUploading}>Remove</button>
+                </div>
+              </div>
+            ) : (
+              <label style={sitePhotoDropzone}>
+                <Icon name="landmark" size={20} style={{ color: "#9ca3af" }} />
+                <span>{imageUploading ? "Uploading…" : "Click to upload a photo"}</span>
+                <input
+                  type="file" accept="image/*"
+                  style={{ display: "none" }} disabled={imageUploading}
+                  onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
+                />
+              </label>
+            )}
+            {cropFile && (
+              <ImageCropper file={cropFile} aspect={SITE_ASPECT} onCancel={() => setCropFile(null)} onApply={onCropApplied} />
             )}
 
             <label style={fieldLabel}>Historical Background</label>
@@ -309,7 +361,7 @@ export default function HeritageSites() {
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
               <button style={cancelBtn} className="tc-btn" onClick={() => setModalOpen(false)} disabled={saving}>Cancel</button>
-              <button style={saveBtn} className="tc-btn tc-btn-primary" onClick={saveSite} disabled={saving}>{saving ? "Saving…" : editingId ? "Save Changes" : "Add Site"}</button>
+              <button style={saveBtn} className="tc-btn tc-btn-primary" onClick={saveSite} disabled={saving || imageUploading}>{saving ? "Saving…" : editingId ? "Save Changes" : "Add Site"}</button>
             </div>
           </div>
         </div>
@@ -373,3 +425,10 @@ const fieldLabel = { display: "block", fontSize: "13px", fontWeight: 600, color:
 const fieldInput = { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1d5db", fontSize: "14px", boxSizing: "border-box", fontFamily: "inherit" };
 const cancelBtn = { background: "#f1f5f9", border: "none", borderRadius: "8px", padding: "10px 18px", cursor: "pointer", fontSize: "14px", color: "#374151" };
 const saveBtn = { background: "#1D4ED8", color: "#fff", border: "none", borderRadius: "8px", padding: "10px 18px", cursor: "pointer", fontSize: "14px", fontWeight: 600 };
+
+const sitePhotoDropzone = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, height: "100px", borderRadius: "10px", border: "1.5px dashed #d1d5db", background: "#F7FAFF", color: "#6b7280", fontSize: "13px", cursor: "pointer", textAlign: "center" };
+const sitePhotoPreviewWrap = { position: "relative", borderRadius: "10px", overflow: "hidden", border: "1px solid #e6ecf5" };
+const sitePhotoPreviewImg = { width: "100%", height: "140px", backgroundSize: "cover", backgroundPosition: "center", display: "block" };
+const sitePhotoActions = { position: "absolute", top: 8, right: 8, display: "flex", gap: 6 };
+const sitePhotoBtn = { background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer", display: "inline-flex", alignItems: "center" };
+const sitePhotoRemoveBtn = { background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer" };

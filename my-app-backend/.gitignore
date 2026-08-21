@@ -1,3 +1,5 @@
 config/db_credentials.php
 uploads/*
 !uploads/.gitkeep
+!uploads/places/
+!uploads/places/*.jpg

@@ -220,6 +220,16 @@ export async function apiUploadEventImage(file, oldImage) {
     method: "POST", headers: authHeaders(), body: fd
   }));
 }
+// ---- Tourist Spot / Heritage Site photo (admin) ----
+export async function apiUploadPlaceImage(folder, file, oldImage) {
+  const fd = new FormData();
+  fd.append("folder", folder);
+  fd.append("image", file);
+  if (oldImage) fd.append("old_image", oldImage);
+  return handle(await fetch(`${BASE}/upload_place_image.php`, {
+    method: "POST", headers: authHeaders(), body: fd
+  }));
+}
 // ---- Certificate pickup notification (admin -> establishment) ----
 export async function apiNotifyPickup(certificateId) {
   return handle(await fetch(`${BASE}/notify_pickup.php`, {

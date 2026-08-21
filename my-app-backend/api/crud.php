@@ -10,12 +10,12 @@ require_once "../config/auth.php";
 require_once "../config/activity.php";
 
 $TABLES = [
-  "tourist_spots"      => ["name","category","address","contact_no","email","website","status"],
+  "tourist_spots"      => ["name","category","address","contact_no","email","website","status","coordinates","image"],
   "restaurants"        => ["name","cuisine","address","contact_no","email","website","status"],
   "hotels"             => ["name","type","address","contact_no","email","website","status"],
   "tourism_businesses" => ["name","type","address","contact_no","email","website","status"],
   "events"             => ["name","event_date","start_time","end_time","month","category","venue","description","participants","status","image","approval_status","approval_remarks"],
-  "heritage_sites"     => ["name","category","est","location","description","significance","status","coordinates","image"],
+  "heritage_sites"     => ["name","category","tagline","est","location","description","significance","status","coordinates","image"],
   "certificates"       => ["establishment","type","business_permit_no","applicant","contact","address","submitted_date","status","control_no","business_account_no","or_no","issued","expiry","remarks","owner_id","picked_up_at"],
   "reviews"            => ["place","reviewer","rating","sentiment","comment"],
   "visits"             => ["user_id","place"],

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { HERITAGE_SITES } from "../data/tcimsData";
-import { apiVisitsMine, apiVisitToggle, apiFeedbackMine, apiCheckinWithPhotos, apiRewardMine, apiRewardClaim } from "../api/api";
+import { apiVisitsMine, apiVisitToggle, apiFeedbackMine, apiCheckinWithPhotos, apiRewardMine, apiRewardClaim, apiList, fileUrl } from "../api/api";
 import { verifyAtLocation, getPosition, CHECKIN_RADIUS_M } from "../utils/geo";
 import { computePoints, tierFor } from "../utils/gamification";
 import CheckInPhotos from "./CheckInPhotos";
@@ -12,22 +11,27 @@ import { HERITAGE_FIL } from "../i18n/translations";
 
 // Trail = Heritage Church Trail (9 parish churches of Mandaluyong).
 const TRAIL_CATEGORIES = ["Church"];
-// Built per-render (memoized on `lang`) so tagline/hint can swap to the
-// curated Filipino text when the tourist toggles language.
-const buildTrail = (lang) => HERITAGE_SITES
+// Built per-render (memoized on `lang` + the DB rows) so tagline/hint can
+// swap to the curated Filipino text when the tourist toggles language.
+// `heritageSites` comes from the database (heritage_sites table, via
+// apiList) — this used to read a hardcoded array from tcimsData.js instead,
+// which meant editing a site in the admin had zero effect on the trail.
+const buildTrail = (lang, heritageSites) => heritageSites
   .filter(h => TRAIL_CATEGORIES.includes(h.category))
   .map(h => {
     const fil = lang === "fil" ? HERITAGE_FIL[h.name] : null;
     return {
       name: h.name, category: h.category,
       tagline: fil?.tagline || h.tagline || "",
-      hint: h.location, coordinates: h.coordinates,
+      hint: h.location, coordinates: h.coordinates, image: h.image || "",
     };
   });
 
-// same convention as TouristExplore.jsx: "San Felipe Neri Church" -> "/places/san-felipe-neri-church.jpg"
+// Legacy static-file fallback, used only for a site with no photo uploaded
+// through the admin yet — same convention as TouristExplore.jsx.
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-const imgFor = (name) => `/places/${slug(name)}.jpg`;
+const legacyImgFor = (name) => `/places/${slug(name)}.jpg`;
+const trailImgSrc = (t) => (t.image ? fileUrl(t.image) : legacyImgFor(t.name));
 
 const CAT = {
   "Church": { color: "#1D4ED8", icon: "" },
@@ -35,7 +39,13 @@ const CAT = {
 
 export default function TouristTrail() {
   const { lang, t } = useLanguage();
-  const TRAIL = useMemo(() => buildTrail(lang), [lang]);
+  const [heritageSites, setHeritageSites] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    apiList("heritage_sites").then(d => { if (!cancelled) setHeritageSites(Array.isArray(d) ? d : []); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  const TRAIL = useMemo(() => buildTrail(lang, heritageSites), [lang, heritageSites]);
   const [visited, setVisited] = useState([]);
   const [reviewsCount, setReviewsCount] = useState(0);
   const [busy, setBusy] = useState("");
@@ -247,7 +257,7 @@ export default function TouristTrail() {
               <div className="trail-card" style={{ ...tlCard, ...(v ? tlCardDone : {}), ...(isNext ? tlCardNext : {}) }}>
                 <div style={{ ...iconBox, background: meta.color + "1a" }}>
                   <img
-                    src={imgFor(stop.name)} alt=""
+                    src={trailImgSrc(stop)} alt=""
                     style={iconImg}
                     onError={(e) => { e.currentTarget.style.display = "none"; }}
                   />
