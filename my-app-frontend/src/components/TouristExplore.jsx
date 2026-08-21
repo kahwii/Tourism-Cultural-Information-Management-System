@@ -117,7 +117,13 @@ export default function TouristExplore() {
   }, [touristSpots]);
   const contactFor = (name) => contacts[normalize(name)] || null;
   const [fb, setFb] = useState(null);
-  const [rating, setRating] = useState(5);
+  // No default rating — an untouched 5-star used to silently promote
+  // no-polarity comments (e.g. ":(", "pumunta kami noong Sabado") to
+  // "Positive" in the sentiment engine's rating tie-break, because the
+  // engine couldn't tell "genuinely rated 5 stars" apart from "never
+  // touched the widget". Starting at 0 and requiring a real tap fixes
+  // that at the source instead of guessing in the classifier.
+  const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [fbAll, setFbAll] = useState([]);
@@ -174,8 +180,9 @@ export default function TouristExplore() {
       setCheckingIn("");
     }
   };
-  const openFb = (place) => { setFb(place); setRating(5); setComment(""); setDetail(null); };
+  const openFb = (place) => { setFb(place); setRating(0); setComment(""); setDetail(null); };
   const submitFeedback = async () => {
+    if (rating === 0) { toast.error("Please tap a star to rate your visit."); return; }
     setSubmitting(true);
     try {
       const res = await apiFeedbackCreate({ place: fb.name, rating, comment });
@@ -330,15 +337,22 @@ export default function TouristExplore() {
           <div style={modal} className="tc-modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ margin: "0 0 4px", color: "#0F172A" }}>Rate {fb.name}</h3>
             <p style={{ margin: "0 0 14px", fontSize: 13, color: "#6b7280" }}>{t("rateVisit")}</p>
-            <div style={{ fontSize: 30, textAlign: "center", marginBottom: 14, cursor: "pointer" }}>
+            <div style={{ fontSize: 34, textAlign: "center", marginBottom: 4 }}>
               {[1, 2, 3, 4, 5].map(n => (
-                <span key={n} onClick={() => setRating(n)} style={{ color: "#EAA31E", opacity: n <= rating ? 1 : 0.3 }}>★</span>
+                <span
+                  key={n}
+                  onClick={() => setRating(n)}
+                  style={{ color: n <= rating ? "#EAA31E" : "#d1d5db", cursor: "pointer", padding: "0 2px", display: "inline-block" }}
+                >★</span>
               ))}
             </div>
+            <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "#9ca3af", textAlign: "center" }}>
+              {rating === 0 ? "Tap a star to rate" : `${rating} of 5 stars`}
+            </p>
             <textarea style={textarea} placeholder={t("shareExperience")} value={comment} onChange={(e) => setComment(e.target.value)} />
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
               <button style={cancelBtn} className="tc-btn" onClick={() => setFb(null)} disabled={submitting}>{t("cancel")}</button>
-              <button style={submitBtn} className="tc-btn tc-btn-primary" onClick={submitFeedback} disabled={submitting}>{submitting ? t("submitting") : t("submit")}</button>
+              <button style={submitBtn} className="tc-btn tc-btn-primary" onClick={submitFeedback} disabled={submitting || rating === 0}>{submitting ? t("submitting") : t("submit")}</button>
             </div>
           </div>
         </div>

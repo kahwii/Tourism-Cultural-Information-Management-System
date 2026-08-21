@@ -13,14 +13,40 @@ function bearer_token() {
     return '';
 }
 
+// Server-side idle timeout for api_token. Slightly more forgiving than the
+// frontend's 15-minute inactivity timer (AuthContext.jsx) to absorb network
+// lag/clock skew — but the important part is that this is enforced here, on
+// the server, not just in the browser. Before this existed, a copied or
+// leaked token (lost laptop still signed in, browser dev tools, malware
+// reading localStorage) worked forever; nothing short of changing the
+// password could revoke it. Now an unused token simply stops working.
+const TOKEN_IDLE_MINUTES = 30;
+
 function current_user($conn) {
     $token = bearer_token();
     if ($token === '') return null;
-    $stmt = mysqli_prepare($conn, "SELECT id, username, email, role, status, avatar FROM users WHERE api_token = ? LIMIT 1");
+    $stmt = mysqli_prepare($conn, "SELECT id, username, email, role, status, avatar, token_last_used_at FROM users WHERE api_token = ? LIMIT 1");
     mysqli_stmt_bind_param($stmt, "s", $token);
     mysqli_stmt_execute($stmt);
     $res = mysqli_stmt_get_result($stmt);
-    return mysqli_fetch_assoc($res) ?: null;
+    $u = mysqli_fetch_assoc($res) ?: null;
+    if (!$u) return null;
+
+    if ($u['token_last_used_at'] !== null) {
+        $idleSeconds = time() - strtotime($u['token_last_used_at']);
+        if ($idleSeconds > TOKEN_IDLE_MINUTES * 60) {
+            return null; // token exists but has gone idle too long — treat as signed out
+        }
+    }
+
+    // Sliding renewal: any authenticated request keeps an active session
+    // alive, so someone actually using the app is never cut off mid-work.
+    $upd = mysqli_prepare($conn, "UPDATE users SET token_last_used_at = NOW() WHERE id = ?");
+    mysqli_stmt_bind_param($upd, "i", $u['id']);
+    mysqli_stmt_execute($upd);
+
+    unset($u['token_last_used_at']);
+    return $u;
 }
 
 function is_admin_role($role) {

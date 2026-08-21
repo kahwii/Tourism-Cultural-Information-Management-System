@@ -86,7 +86,7 @@ if (in_array($user['role'], $adminRoles, true) && !empty($user['admin_pin'])) {
 
 // success — reset counters, issue token, update last login
 $token = bin2hex(random_bytes(32));
-$st = mysqli_prepare($conn, "UPDATE users SET api_token = ?, last_login = NOW(), failed_attempts = 0, lockout_until = NULL WHERE id = ?");
+$st = mysqli_prepare($conn, "UPDATE users SET api_token = ?, token_last_used_at = NOW(), last_login = NOW(), failed_attempts = 0, lockout_until = NULL WHERE id = ?");
 mysqli_stmt_bind_param($st, "si", $token, $uid);
 mysqli_stmt_execute($st);
 

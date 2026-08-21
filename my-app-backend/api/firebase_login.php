@@ -81,7 +81,7 @@ if (($user['status'] ?? 'Active') === 'Inactive') {
 // issue our API token
 $token = bin2hex(random_bytes(32));
 $uid = (int)$user['id'];
-$stmt = mysqli_prepare($conn, "UPDATE users SET api_token = ?, last_login = NOW() WHERE id = ?");
+$stmt = mysqli_prepare($conn, "UPDATE users SET api_token = ?, token_last_used_at = NOW(), last_login = NOW() WHERE id = ?");
 mysqli_stmt_bind_param($stmt, "si", $token, $uid);
 mysqli_stmt_execute($stmt);
 

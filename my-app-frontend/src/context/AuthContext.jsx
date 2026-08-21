@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { toast } from '../utils/toast';
+import { apiLogout } from '../api/api';
 
 const AuthContext = createContext(null);
 
@@ -20,6 +21,11 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    // Best-effort, fire-and-forget: clears api_token server-side too, so a
+    // copied token can't keep working after the user has explicitly signed
+    // out. Called before the localStorage entries below are removed, since
+    // it needs to read the current token from them.
+    apiLogout();
     setUser(null);
     localStorage.removeItem('user');
     localStorage.removeItem('loginTime');

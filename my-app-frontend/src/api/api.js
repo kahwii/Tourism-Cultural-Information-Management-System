@@ -161,6 +161,14 @@ export async function apiFirebaseLogin(idToken, role = "Tourist") {
     body: JSON.stringify({ idToken, role })
   }));
 }
+// ---- Server-side logout: clears api_token so it can't be reused after
+// the user has explicitly signed out (see AuthContext.jsx). Fire-and-forget
+// from the caller's point of view — the local session clears either way. ----
+export async function apiLogout() {
+  try {
+    await fetch(`${BASE}/logout.php`, { method: "POST", headers: authHeaders() });
+  } catch { /* local logout still proceeds even if this fails */ }
+}
 // ---- Set / change the logged-in user's password ----
 export async function apiSetPassword(password) {
   return handle(await fetch(`${BASE}/set_password.php`, {
