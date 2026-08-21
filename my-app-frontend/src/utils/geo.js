@@ -1,7 +1,7 @@
 // TEMP FOR TESTING: widened from 250m to 50000m (50km) so check-ins can be
 // tested from anywhere in Metro Manila without traveling to each church.
 // MUST be reverted to 250 before this goes back to real production use.
-export const CHECKIN_RADIUS_M = 250;
+export const CHECKIN_RADIUS_M = 50000;
 
 // "14.5794, 121.0359" -> { lat, lon }
 export function parseCoords(str) {

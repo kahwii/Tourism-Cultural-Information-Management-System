@@ -84,9 +84,19 @@ if (in_array($method, $writes, true)) {
 if ($method === 'GET') {
   // table is whitelisted; id/owner_id are integers -> safe to inline
   $where = $id ? "WHERE id = $id" : "";
-  if ($table === 'certificates' && $isEstablishment) {
-    $oid = (int)$authUser['id'];
-    $where = $id ? "WHERE id = $id AND owner_id = $oid" : "WHERE owner_id = $oid";
+  if ($table === 'certificates') {
+    // Certificates carry sensitive business info (permit numbers, contact
+    // details, internal remarks) — only admins and the owning establishment
+    // may read them. Previously any authenticated account (including a
+    // self-registered Tourist) could list every business's application.
+    if ($isEstablishment) {
+      $oid = (int)$authUser['id'];
+      $where = $id ? "WHERE id = $id AND owner_id = $oid" : "WHERE owner_id = $oid";
+    } elseif (!$isAdmin) {
+      http_response_code(403);
+      echo json_encode(["error" => "Forbidden."]);
+      exit;
+    }
   }
   $res = mysqli_query($conn, "SELECT * FROM `$table` $where ORDER BY id DESC");
   $rows = [];

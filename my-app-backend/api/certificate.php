@@ -8,9 +8,10 @@
           (e.g. very old test accounts) — if provided, it is saved to the
           account so future certificate emails don't need to ask again.
 
-  The 9 required churches are hardcoded here (not read from the heritage_sites
-  DB table) so completion always matches exactly what the tourist sees as
-  9/9 on their Trail page (src/data/tcimsData.js, category === "Church").
+  The required churches come from config/heritage_trail.php, which reads the
+  heritage_sites DB table live (category = 'Church') — the same table and
+  the same filter the Trail page itself uses, so completion here can never
+  drift out of sync with what the tourist sees as N/N on their Trail page.
 */
 require_once "../config/cors.php";
 require_once "../config/db.php";

@@ -1,33 +1,45 @@
 <?php
 /*
-  Single source of truth for "what counts as the Heritage Church Trail"
-  on the backend. Kept as a literal list (not the heritage_sites DB table)
-  so it always matches exactly what the tourist sees on their Trail page —
-  src/data/tcimsData.js, category === "Church" (9 parish churches).
+  Single source of truth for "what counts as the Heritage Church Trail" on
+  the backend: the heritage_sites DB rows with category = 'Church'.
 
   Used by both:
-    - api/claim_reward.php (Heritage Mug — must require ALL 9, same as here)
-    - api/certificate.php  (Trail Certificate — must require ALL 9, same as here)
-  Previously these two used DIFFERENT completion criteria (claim_reward.php
-  queried the heritage_sites DB table across 4 categories), so a tourist
-  could see "9/9" on the Trail page yet still get "Trail not yet complete"
-  when claiming the mug. Fixed by having both read from here.
+    - api/claim_reward.php (Heritage Mug — must require ALL trail churches)
+    - api/certificate.php  (Trail Certificate — must require ALL trail churches)
+  Previously these two used DIFFERENT completion criteria (one queried
+  heritage_sites across 4 categories, the other didn't query it at all), so
+  a tourist could see "9/9" on the Trail page yet still get "Trail not yet
+  complete" when claiming the mug. Fixed by having both call trail_status()
+  with the same list, built here.
+
+  IMPORTANT — this used to be a hardcoded PHP list of the 9 church names,
+  kept in sync BY HAND with the frontend's Trail page. That was safe only
+  because the Trail page's data source (src/data/tcimsData.js) was also
+  hardcoded and never changed at runtime. Once heritage_sites became
+  admin-editable (Heritage Sites CRUD + the Trail page reading from the
+  same table via apiList), a hardcoded copy here would go stale the moment
+  an admin renamed a church, fixed a typo, or changed its category —
+  silently reintroducing the exact bug this file was written to prevent.
+  So this now reads the SAME table the Trail page reads, live, every call:
+  whatever 9 rows have category = 'Church' right now is the trail, on both
+  sides, always in agreement.
 */
 
-$TRAIL_CHURCHES = [
-    "San Felipe Neri Parish Church",
-    "San Roque de Barangka Parish Church",
-    "St. Francis of Assisi Parish Church",
-    "Santuario de San Jose Parish Church",
-    "Our Lady of the Abandoned Parish",
-    "Our Lady of Fatima Parish Church",
-    "Sacred Heart of Jesus Parish Church",
-    "St. Dominic Savio Parish Church",
-    "Archdiocesan Shrine of the Divine Mercy",
-];
+// Requires config/db.php to already be included ($conn in scope).
+function trail_churches($conn) {
+    $res = mysqli_query($conn, "SELECT name FROM heritage_sites WHERE category = 'Church' ORDER BY name");
+    $out = [];
+    if ($res) { while ($r = mysqli_fetch_assoc($res)) $out[] = $r['name']; }
+    return $out;
+}
+
+// Populated once per request, right after config/db.php + this file are
+// both loaded — existing callers can keep using $TRAIL_CHURCHES unchanged.
+$TRAIL_CHURCHES = trail_churches($conn);
 
 // Returns ["done" => int, "total" => int, "completed" => bool, "date" => string|null (latest visit)]
 function trail_status($conn, $uid, $churches) {
+    if (!$churches) return ["done" => 0, "total" => 0, "completed" => false, "date" => null];
     $in = "'" . implode("','", array_map(fn($c) => mysqli_real_escape_string($conn, $c), $churches)) . "'";
     $res = mysqli_query($conn,
         "SELECT place, MAX(visited_at) AS last_visit FROM visits
