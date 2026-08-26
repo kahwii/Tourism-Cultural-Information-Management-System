@@ -1,0 +1,113 @@
+comment,label,source
+The church was very beautiful and the staff were friendly.,Positive,reference
+"Excellent heritage trail, I really enjoyed the experience.",Positive,reference
+Very clean and well organized. Highly recommend.,Positive,reference
+Maganda ang simbahan at malinis ang paligid.,Positive,reference
+"Sobrang ganda ng lugar, sulit ang punta.",Positive,reference
+The staff were helpful and the place felt safe.,Positive,reference
+"Amazing experience, the guides were informative.",Positive,reference
+Salamat sa mabilis at maayos na serbisyo.,Positive,reference
+"Great app, easy to use and very convenient.",Positive,reference
+"Loved the historic churches, well preserved.",Positive,reference
+"Ang galing ng programa, masaya kami.",Positive,reference
+Affordable and worth the visit. Thank you!,Positive,reference
+The festival was wonderful and well attended.,Positive,reference
+Peaceful and comfortable place to visit.,Positive,reference
+"Napakabait ng mga staff, mabilis ang proseso.",Positive,reference
+The area was dirty and the staff were rude.,Negative,reference
+"Terrible experience, very disappointing service.",Negative,reference
+Too crowded and the queue was extremely slow.,Negative,reference
+Madumi ang palikuran at mabagal ang serbisyo.,Negative,reference
+"Hindi maganda, sobrang dumi ng lugar.",Negative,reference
+The signage was confusing and hard to follow.,Negative,reference
+"Poor maintenance, many facilities are broken.",Negative,reference
+Delikado ang daan at walang ilaw sa gabi.,Negative,reference
+"Worst service I have experienced, very unorganized.",Negative,reference
+Masyadong mahal at kulang ang pasilidad.,Negative,reference
+The place was neglected and smelly.,Negative,reference
+"Baha agad kapag umuulan, delikado.",Negative,reference
+"Not good at all, the tour was a waste of time.",Negative,reference
+Pangit ang kalsada at maraming basura.,Negative,reference
+"Unsafe and poorly lit, I would not return.",Negative,reference
+I visited the church last Sunday afternoon.,Neutral,reference
+The event starts at nine in the morning.,Neutral,reference
+There are nine heritage churches on the trail.,Neutral,reference
+Pumunta ako sa city hall kahapon.,Neutral,reference
+I would like to ask about the schedule of the festival.,Neutral,reference
+The office is located near the main road.,Neutral,reference
+May tanong ako tungkol sa requirements.,Neutral,reference
+I downloaded the app yesterday.,Neutral,reference
+The tour takes about two hours to complete.,Neutral,reference
+Ilan po ang bayad para sa entrance?,Neutral,reference
+Please send the details to my email address.,Neutral,reference
+The building was constructed in 1863.,Neutral,reference
+Nagpunta kami ng pamilya ko noong Sabado.,Neutral,reference
+I am asking for the list of accredited establishments.,Neutral,reference
+The map shows the location of each stop.,Neutral,reference
+okay lang wala namang bago sakto lang,Neutral,regression
+okay lang medjo maayos,Neutral,regression
+medyo maganda naman,Neutral,regression
+okay naman hindi maganda at panget tama lang,Negative,regression
+sobrang ganda tangina,Negative,regression
+panget mo,Negative,regression
+nigga,Negative,regression
+nigga church,Negative,regression
+mega mall niggas,Negative,regression
+maayos malinis,Positive,review
+"Sobrang linis at ayos ng paligid, top-notch!",Positive,review
+"Sobrang ganda ng tanawin dito, babalik ako ulit.",Positive,review
+"Peaceful and quiet, perfect for reflection.",Positive,review
+"Amazing view, breathtaking talaga ang lugar 😍",Positive,review
+"Stunning architecture, kaayaaya sa mata.",Positive,review
+Mahina ang signal at walang malinaw na signage.,Negative,review
+bad so many bullying,Negative,review
+Very clean and well-maintained heritage site.,Positive,review
+"This place is a must-visit, iconic landmark ng Mandaluyong.",Positive,review
+Solid trip! Would recommend to friends and family.,Positive,review
+Ang bagal ng serbisyo at sobrang dumi ng CR. Hindi na ako babalik.,Negative,review
+"Okay lang naman, wala namang bago. Sakto lang.",Neutral,review
+"okay lang, ang panget",Negative,review
+"Napakasaya ng bata ko dito, fun talaga!",Positive,review
+"Sobrang ganda ng simbahan, ang bait ng mga staff. Babalik ako ulit.",Positive,review
+this is good place,Positive,review
+"Sakto lang, pwede na",Neutral,review
+pumunta kami nung sabado,Neutral,review
+"Bastos ang guard, hindi ako babalik dito.",Negative,review
+"Sobrang crowded, hindi na kasya ang mga bisita.",Negative,review
+"It's fine, nothing extraordinary but not bad either.",Neutral,review
+"Okay lang, pwede na.",Neutral,review
+okay naman dito hindi gaanong maganda at panget,Negative,review
+"Dirty and poorly maintained, hindi maganda ang imahe.",Negative,review
+"Disappointing experience, hindi ko rekomendado.",Negative,review
+"Maganda ang lugar, accessible din sa commute.",Positive,review
+"Mabait ang mga tao dito, napakaasikaso.",Positive,review
+"Ang friendly ng staff, helpful sila lahat.",Positive,review
+"Rude ang staff, hindi ko na babalikan ito.",Negative,review
+"Maayos ang serbisyo, mabilis din ang staff.",Positive,review
+Average experience overall.,Neutral,review
+i love the safety,Positive,review
+"Well organized ang event, professional ang staff.",Positive,review
+"Excellent service, courteous and punctual ang mga tao.",Positive,review
+shit tanginamo,Negative,review
+"Mabagal ang serbisyo, matagal kami naghintay.",Negative,review
+"Nakakastress ang biyahe papunta dito, magulo ang daan.",Negative,review
+walang bitaw,Negative,review
+"Waste of time and money, hindi worth it.",Negative,review
+"Run-down na ang building, kailangan na ng renovation.",Negative,review
+okay naman dinaman masyadong panget,Negative,review
+ang panget pota,Negative,review
+"Sulit na sulit ang bayad, worth every peso.",Positive,review
+napaganda nito,Positive,review
+walang kwenta,Negative,review
+Masarap ang pagkain at maganda ang ambiance.,Positive,review
+banban panget mo,Negative,review
+"Medyo ordinary lang, walang special.",Neutral,review
+Overpriced at hindi naman sulit ang bayad.,Negative,review
+"Sobrang dumi ng banyo, nakakadiri.",Negative,review
+good abiance,Positive,review
+"okay lang, pwede na",Neutral,review
+"Napakadumi ng paligid, kailangan ng cleanup.",Negative,review
+"Napakasikip ng parking area, nakakainis.",Negative,review
+"Sakto lang, hindi masyadong maganda o pangit.",Neutral,review
+"Grabe ang ganda, picturesque talaga dito 😊",Positive,review
+i love this church!,Positive,review

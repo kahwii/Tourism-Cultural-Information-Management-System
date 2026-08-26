@@ -378,10 +378,16 @@ const chipActive = { background: "#1D4ED8", color: "#fff", borderColor: "#1D4ED8
 
 const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 };
 const card = { background: "#fff", borderRadius: 16, border: "1px solid #eef2f8", boxShadow: "0 1px 3px rgba(15,23,42,0.04)", overflow: "hidden", cursor: "pointer" };
-const cardHead = { height: 96, padding: 14, display: "flex", flexDirection: "column", justifyContent: "space-between", color: "#fff", position: "relative", overflow: "hidden" };
+const cardHead = { minHeight: 120, padding: 14, display: "flex", flexDirection: "column", justifyContent: "space-between", color: "#fff", position: "relative", overflow: "hidden" };
 const headImg = { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0 };
 const headScrim = { position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.55))", zIndex: 1 };
-const cardHeadTitle = { fontSize: 17, fontWeight: 700, textShadow: "0 1px 4px rgba(0,0,0,0.4)" };
+// Capped at 2 lines (with an ellipsis on a 3rd) so a long name like
+// "Archdiocesan Shrine of the Divine Mercy" can never grow tall enough to
+// run into the "✓ Visited" badge pinned at the top-right of the card.
+const cardHeadTitle = {
+  fontSize: 17, fontWeight: 700, textShadow: "0 1px 4px rgba(0,0,0,0.4)", lineHeight: 1.25,
+  display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+};
 const estBadge = { alignSelf: "flex-start", background: "rgba(255,255,255,0.25)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6 };
 const visitedBadge = { position: "absolute", top: 12, right: 12, background: "#16a34a", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6 };
 

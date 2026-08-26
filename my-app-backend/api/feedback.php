@@ -38,6 +38,30 @@ if ($method === 'POST') {
         exit;
     }
 
+    // ---- rate limiting ----
+    // Prevents a single account (or a compromised/scripted one) from flooding
+    // the reviews table, which would both degrade the live sentiment
+    // dashboard and poison any future ML training data pulled from it.
+    // Two independent checks: a short burst limit (catches scripted spam)
+    // and a generous daily cap (catches sustained abuse) — both loose enough
+    // that no genuine tourist visiting several spots in a day would ever hit them.
+    $burst = mysqli_query($conn, "SELECT COUNT(*) AS c FROM reviews
+        WHERE user_id = $uid AND created_at >= NOW() - INTERVAL 1 MINUTE");
+    $burstCount = $burst ? (int)(mysqli_fetch_assoc($burst)['c'] ?? 0) : 0;
+    if ($burstCount >= 3) {
+        http_response_code(429);
+        echo json_encode(["error" => "You're submitting reviews too quickly. Please wait a bit and try again."]);
+        exit;
+    }
+    $daily = mysqli_query($conn, "SELECT COUNT(*) AS c FROM reviews
+        WHERE user_id = $uid AND created_at >= NOW() - INTERVAL 1 DAY");
+    $dailyCount = $daily ? (int)(mysqli_fetch_assoc($daily)['c'] ?? 0) : 0;
+    if ($dailyCount >= 30) {
+        http_response_code(429);
+        echo json_encode(["error" => "You've reached today's review submission limit. Please try again tomorrow."]);
+        exit;
+    }
+
     // ---- server-side sentiment scoring ----
     $s = tcims_sentiment($comment, $rating);
     $sentiment = $s['sentiment'];

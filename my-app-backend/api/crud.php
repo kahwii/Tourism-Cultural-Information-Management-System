@@ -98,14 +98,63 @@ if ($method === 'GET') {
       exit;
     }
   }
-  $res = mysqli_query($conn, "SELECT * FROM `$table` $where ORDER BY id DESC");
+  if ($id) {
+    $res = mysqli_query($conn, "SELECT * FROM `$table` $where ORDER BY id DESC");
+    $rows = [];
+    while ($r = mysqli_fetch_assoc($res)) $rows[] = $r;
+    echo json_encode($rows[0] ?? null);
+    exit;
+  }
+
+  // Pagination safety net for the "list everything" case. An explicit
+  // ?limit=&offset= lets a future paginated admin UI ask for one page at a
+  // time; with no params at all, a generous default cap still keeps this
+  // endpoint from ever returning an unbounded number of rows once a table
+  // grows into the thousands. Every table today is well under this cap, so
+  // existing frontend calls that don't pass these params see no change.
+  $maxLimit = 2000;
+  $limit  = isset($_GET['limit'])  ? max(1, min((int)$_GET['limit'], $maxLimit)) : 1000;
+  $offset = isset($_GET['offset']) ? max(0, (int)$_GET['offset']) : 0;
+
+  $countRes = mysqli_query($conn, "SELECT COUNT(*) AS c FROM `$table` $where");
+  $total = $countRes ? (int)(mysqli_fetch_assoc($countRes)['c'] ?? 0) : 0;
+
+  $res = mysqli_query($conn, "SELECT * FROM `$table` $where ORDER BY id DESC LIMIT $limit OFFSET $offset");
   $rows = [];
   while ($r = mysqli_fetch_assoc($res)) $rows[] = $r;
-  echo json_encode($id ? ($rows[0] ?? null) : $rows);
+  // Exposed as a header (not wrapped in the JSON body) so existing frontend
+  // code that expects a plain array back keeps working unchanged; a future
+  // paginated UI can read this to build page controls.
+  header("Access-Control-Expose-Headers: X-Total-Count");
+  header("X-Total-Count: $total");
+  echo json_encode($rows);
   exit;
 }
 
 if ($method === 'POST') {
+  // Rate limit review submissions here too — reviews can be created either
+  // through feedback.php or through this generic endpoint (tourists are
+  // whitelisted above to POST to 'reviews'), so both paths need the same
+  // spam/flood protection or this one becomes the easy bypass.
+  if ($table === 'reviews') {
+    $uidRl = (int)$authUser['id'];
+    $burst = mysqli_query($conn, "SELECT COUNT(*) AS c FROM reviews
+        WHERE user_id = $uidRl AND created_at >= NOW() - INTERVAL 1 MINUTE");
+    $burstCount = $burst ? (int)(mysqli_fetch_assoc($burst)['c'] ?? 0) : 0;
+    if ($burstCount >= 3) {
+      http_response_code(429);
+      echo json_encode(["error" => "You're submitting reviews too quickly. Please wait a bit and try again."]);
+      exit;
+    }
+    $daily = mysqli_query($conn, "SELECT COUNT(*) AS c FROM reviews
+        WHERE user_id = $uidRl AND created_at >= NOW() - INTERVAL 1 DAY");
+    $dailyCount = $daily ? (int)(mysqli_fetch_assoc($daily)['c'] ?? 0) : 0;
+    if ($dailyCount >= 30) {
+      http_response_code(429);
+      echo json_encode(["error" => "You've reached today's review submission limit. Please try again tomorrow."]);
+      exit;
+    }
+  }
   // Events maker-checker: only an approver may set approval_status directly.
   // A CCAT Staff submission always lands as "Pending" for admin review.
   if ($table === 'events') {
