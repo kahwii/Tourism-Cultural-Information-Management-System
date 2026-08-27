@@ -98,6 +98,20 @@ function tcims_sentiment_ml($comment) {
         }
     }
 
+    // If not a single word/phrase in the comment matched anything the model
+    // was trained on, scikit-learn's own predict() would still confidently
+    // pick a class purely from class_log_prior — i.e. whichever label was
+    // most common in training data (currently Negative, 45/112). That's a
+    // real, observed failure mode (see sentiment_ml_test.php: "😊", a lone
+    // "maganda", an address with no sentiment words all got called
+    // Negative for this reason), not a considered judgment about the text.
+    // Reporting "Neutral — no signal" here instead is a deliberate business
+    // rule on TOP of the raw model, not a change to the trained model
+    // itself; train_sentiment.py's accuracy numbers are unaffected.
+    if (empty($counts)) {
+        return ["sentiment" => "Neutral", "score" => null, "no_signal" => true];
+    }
+
     $bestClass = null;
     $bestScore = -INF;
     foreach ($weights['classes'] as $ci => $className) {
