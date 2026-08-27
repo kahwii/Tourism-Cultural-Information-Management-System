@@ -10,6 +10,7 @@ require_once "../config/cors.php";
 require_once "../config/db.php";
 require_once "../config/auth.php";
 require_once "../config/sentiment.php";
+require_once "../config/sentiment_ml.php";
 
 $authUser = require_auth($conn);
 $uid = (int)$authUser['id'];
@@ -63,17 +64,24 @@ if ($method === 'POST') {
     }
 
     // ---- server-side sentiment scoring ----
+    // The lexicon result is what's actually shown to users/staff. The ML
+    // result (if a model has been trained/deployed) is stored alongside it
+    // purely for shadow-mode comparison — see config/sentiment_ml.php.
     $s = tcims_sentiment($comment, $rating);
     $sentiment = $s['sentiment'];
+    $mlResult = tcims_sentiment_ml($comment);
+    $mlSentiment = $mlResult['sentiment'] ?? null;
 
-    $sql = "INSERT INTO reviews (user_id, place, reviewer, rating, sentiment, comment)
-            VALUES ($uid, '" . $esc($place) . "', '" . $esc($reviewer) . "', $rating, '" . $esc($sentiment) . "', '" . $esc($comment) . "')";
+    $sql = "INSERT INTO reviews (user_id, place, reviewer, rating, sentiment, ml_sentiment, comment)
+            VALUES ($uid, '" . $esc($place) . "', '" . $esc($reviewer) . "', $rating, '" . $esc($sentiment) . "', " .
+            ($mlSentiment !== null ? "'" . $esc($mlSentiment) . "'" : "NULL") . ", '" . $esc($comment) . "')";
     if (mysqli_query($conn, $sql)) {
         echo json_encode([
-            "success"   => true,
-            "id"        => mysqli_insert_id($conn),
-            "sentiment" => $sentiment,
-            "score"     => $s['score'],
+            "success"      => true,
+            "id"           => mysqli_insert_id($conn),
+            "sentiment"    => $sentiment,
+            "score"        => $s['score'],
+            "ml_sentiment" => $mlSentiment, // shadow-mode only, not authoritative
         ]);
     } else {
         http_response_code(500);

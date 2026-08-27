@@ -8,6 +8,8 @@ require_once "../config/cors.php";
 require_once "../config/db.php";
 require_once "../config/auth.php";
 require_once "../config/activity.php";
+require_once "../config/sentiment.php";
+require_once "../config/sentiment_ml.php";
 
 $TABLES = [
   "tourist_spots"      => ["name","category","address","contact_no","email","website","status","coordinates","image"],
@@ -17,7 +19,7 @@ $TABLES = [
   "events"             => ["name","event_date","start_time","end_time","month","category","venue","description","participants","status","image","approval_status","approval_remarks"],
   "heritage_sites"     => ["name","category","tagline","est","location","description","significance","status","coordinates","image"],
   "certificates"       => ["establishment","type","business_permit_no","applicant","contact","address","submitted_date","status","control_no","business_account_no","or_no","issued","expiry","remarks","owner_id","picked_up_at"],
-  "reviews"            => ["place","reviewer","rating","sentiment","comment"],
+  "reviews"            => ["place","reviewer","rating","sentiment","ml_sentiment","comment"],
   "visits"             => ["user_id","place"],
   "users"              => ["username","email","role","status","avatar"],
   "rewards"            => ["user_id","reward","code","status","claimed_at"]
@@ -154,6 +156,19 @@ if ($method === 'POST') {
       echo json_encode(["error" => "You've reached today's review submission limit. Please try again tomorrow."]);
       exit;
     }
+  }
+  // Reviews: sentiment (both lexicon and ML) is always computed server-side
+  // from the actual comment text, never trusted from the client — otherwise
+  // a caller could submit a comment with a fabricated "sentiment" value that
+  // doesn't match what was actually written, silently corrupting both the
+  // live dashboard and any future ML training data pulled from this table.
+  if ($table === 'reviews') {
+    $comment = (string)($body['comment'] ?? '');
+    $rating  = isset($body['rating']) ? (int)$body['rating'] : null;
+    $s = tcims_sentiment($comment, $rating);
+    $body['sentiment'] = $s['sentiment'];
+    $mlResult = tcims_sentiment_ml($comment);
+    $body['ml_sentiment'] = $mlResult['sentiment'] ?? null;
   }
   // Events maker-checker: only an approver may set approval_status directly.
   // A CCAT Staff submission always lands as "Pending" for admin review.

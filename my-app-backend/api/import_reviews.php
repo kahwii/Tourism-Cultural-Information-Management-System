@@ -16,6 +16,7 @@ require_once "../config/cors.php";
 require_once "../config/db.php";
 require_once "../config/auth.php";
 require_once "../config/sentiment.php";
+require_once "../config/sentiment_ml.php";
 require_once "../config/activity.php";
 
 $authUser = require_admin($conn);
@@ -68,10 +69,14 @@ foreach ($rows as $i => $row) {
     // Same scoring engine as live feedback submissions.
     $s = tcims_sentiment($comment, $rating);
     $sentiment = $s['sentiment'];
+    // Shadow-mode ML scoring, stored for comparison only (see config/sentiment_ml.php).
+    $mlResult = tcims_sentiment_ml($comment);
+    $mlSentiment = $mlResult['sentiment'] ?? null;
 
-    $sql = "INSERT INTO reviews (user_id, place, reviewer, rating, sentiment, comment, created_at, import_batch, imported_by)
+    $sql = "INSERT INTO reviews (user_id, place, reviewer, rating, sentiment, ml_sentiment, comment, created_at, import_batch, imported_by)
             VALUES (NULL, '" . $esc($place) . "', '" . $esc($reviewer) . "', $rating,
-                    '" . $esc($sentiment) . "', '" . $esc($comment) . "', '" . $esc($createdAt) . "',
+                    '" . $esc($sentiment) . "', " . ($mlSentiment !== null ? "'" . $esc($mlSentiment) . "'" : "NULL") . ",
+                    '" . $esc($comment) . "', '" . $esc($createdAt) . "',
                     '" . $esc($batchId) . "', '" . $esc($importedBy) . "')";
 
     if (mysqli_query($conn, $sql)) {
