@@ -84,11 +84,17 @@ if (in_array($user['role'], $adminRoles, true) && !empty($user['admin_pin'])) {
     }
 }
 
-// success — reset counters, issue token, update last login
+// success — reset counters, update last login, issue a NEW session token.
+// This INSERTs a row rather than overwriting a single column, so signing in
+// here does not invalidate a session already active on another device.
 $token = bin2hex(random_bytes(32));
-$st = mysqli_prepare($conn, "UPDATE users SET api_token = ?, token_last_used_at = NOW(), last_login = NOW(), failed_attempts = 0, lockout_until = NULL WHERE id = ?");
-mysqli_stmt_bind_param($st, "si", $token, $uid);
+$st = mysqli_prepare($conn, "UPDATE users SET last_login = NOW(), failed_attempts = 0, lockout_until = NULL WHERE id = ?");
+mysqli_stmt_bind_param($st, "i", $uid);
 mysqli_stmt_execute($st);
+
+$tokStmt = mysqli_prepare($conn, "INSERT INTO user_tokens (user_id, token, last_used_at) VALUES (?, ?, NOW())");
+mysqli_stmt_bind_param($tokStmt, "is", $uid, $token);
+mysqli_stmt_execute($tokStmt);
 
 // audit trail: record admin sign-ins
 if (in_array($user['role'], $adminRoles, true)) {

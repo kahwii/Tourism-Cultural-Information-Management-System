@@ -22,30 +22,46 @@ function bearer_token() {
 // password could revoke it. Now an unused token simply stops working.
 const TOKEN_IDLE_MINUTES = 30;
 
+// Multi-session: each login (web, phone, ...) gets its own row in
+// user_tokens, so signing in on one device no longer invalidates another.
+// See add_user_tokens.sql for the table and why this replaced a single
+// users.api_token column.
 function current_user($conn) {
     $token = bearer_token();
     if ($token === '') return null;
-    $stmt = mysqli_prepare($conn, "SELECT id, username, email, role, status, avatar, token_last_used_at FROM users WHERE api_token = ? LIMIT 1");
+    $stmt = mysqli_prepare($conn, "
+        SELECT u.id, u.username, u.email, u.role, u.status, u.avatar,
+               t.id AS token_row_id, t.last_used_at
+        FROM user_tokens t
+        JOIN users u ON u.id = t.user_id
+        WHERE t.token = ?
+        LIMIT 1
+    ");
     mysqli_stmt_bind_param($stmt, "s", $token);
     mysqli_stmt_execute($stmt);
     $res = mysqli_stmt_get_result($stmt);
     $u = mysqli_fetch_assoc($res) ?: null;
     if (!$u) return null;
 
-    if ($u['token_last_used_at'] !== null) {
-        $idleSeconds = time() - strtotime($u['token_last_used_at']);
+    if ($u['last_used_at'] !== null) {
+        $idleSeconds = time() - strtotime($u['last_used_at']);
         if ($idleSeconds > TOKEN_IDLE_MINUTES * 60) {
-            return null; // token exists but has gone idle too long — treat as signed out
+            // Only this session went idle — revoke just this row, other
+            // devices signed into the same account are unaffected.
+            $del = mysqli_prepare($conn, "DELETE FROM user_tokens WHERE id = ?");
+            mysqli_stmt_bind_param($del, "i", $u['token_row_id']);
+            mysqli_stmt_execute($del);
+            return null;
         }
     }
 
-    // Sliding renewal: any authenticated request keeps an active session
-    // alive, so someone actually using the app is never cut off mid-work.
-    $upd = mysqli_prepare($conn, "UPDATE users SET token_last_used_at = NOW() WHERE id = ?");
-    mysqli_stmt_bind_param($upd, "i", $u['id']);
+    // Sliding renewal: any authenticated request keeps THIS session alive.
+    // Other devices' sessions have their own independent idle clocks.
+    $upd = mysqli_prepare($conn, "UPDATE user_tokens SET last_used_at = NOW() WHERE id = ?");
+    mysqli_stmt_bind_param($upd, "i", $u['token_row_id']);
     mysqli_stmt_execute($upd);
 
-    unset($u['token_last_used_at']);
+    unset($u['last_used_at'], $u['token_row_id']);
     return $u;
 }
 

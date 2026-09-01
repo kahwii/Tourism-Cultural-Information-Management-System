@@ -79,12 +79,16 @@ if (($user['status'] ?? 'Active') === 'Inactive') {
     exit;
 }
 
-// --- issue our API token ---
+// --- issue a new session token (multi-session: INSERT, don't overwrite) ---
 $token = bin2hex(random_bytes(32));
 $uid = (int)$user['id'];
-$stmt = mysqli_prepare($conn, "UPDATE users SET api_token = ?, token_last_used_at = NOW(), last_login = NOW() WHERE id = ?");
-mysqli_stmt_bind_param($stmt, "si", $token, $uid);
+$stmt = mysqli_prepare($conn, "UPDATE users SET last_login = NOW() WHERE id = ?");
+mysqli_stmt_bind_param($stmt, "i", $uid);
 mysqli_stmt_execute($stmt);
+
+$tokStmt = mysqli_prepare($conn, "INSERT INTO user_tokens (user_id, token, last_used_at) VALUES (?, ?, NOW())");
+mysqli_stmt_bind_param($tokStmt, "is", $uid, $token);
+mysqli_stmt_execute($tokStmt);
 
 $user['api_token'] = $token;
 echo json_encode(["success" => true, "message" => "Google login successful", "user" => $user]);
