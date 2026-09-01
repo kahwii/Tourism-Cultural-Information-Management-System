@@ -13,3 +13,9 @@ my-app-backend/config/db_credentials.php
 
 # Troubleshooting tool — must not reach production (see task list).
 my-app-backend/api/smtp_test.php
+
+# Migration scripts are run manually (phpMyAdmin / mysql CLI) and are never
+# read by the app at runtime — no reason for them to sit inside the web root
+# where a direct URL guess (filenames are visible in the public GitHub repo)
+# could download them, even with directory listing disabled.
+my-app-backend/*.sql
