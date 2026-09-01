@@ -38,9 +38,13 @@ RUN docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype --with-a
 # .htaccess files in the project rely on mod_rewrite and mod_headers
 RUN a2enmod rewrite headers
 
-# Allow the .htaccess files that ship with the app to take effect
+# Allow the .htaccess files that ship with the app to take effect.
+# Deliberately NOT "Options Indexes" — that would let anyone browse
+# /uploads/ (check-in selfies, accreditation docs, avatars) as a directory
+# listing just by visiting the folder URL with no filename. FollowSymLinks
+# only, so .htaccess still works but nothing is browsable that isn't linked.
 RUN printf '<Directory /var/www/html>\n\
-    Options Indexes FollowSymLinks\n\
+    Options FollowSymLinks\n\
     AllowOverride All\n\
     Require all granted\n\
 </Directory>\n' > /etc/apache2/conf-available/tcims.conf \
@@ -59,7 +63,15 @@ COPY my-app-backend/ /var/www/html/my-app-backend/
 # ephemeral filesystem — anything written here is lost on restart/redeploy.
 # Files must be stored externally (or as base64 in the database) for anything
 # that has to survive; see RENDER_DEPLOYMENT_FOR_EMMAN.md section 6.
-RUN mkdir -p /var/www/html/my-app-backend/uploads/{visits,certificates,events,avatars} \
+#
+# mkdir -p with brace expansion ({a,b,c}) needs bash — Docker's default RUN
+# shell is /bin/sh (dash), which does NOT expand braces, so that pattern
+# silently created one literally-named folder instead of four subfolders.
+# Listing each path explicitly works under any POSIX shell.
+RUN mkdir -p /var/www/html/my-app-backend/uploads/visits \
+             /var/www/html/my-app-backend/uploads/certificates \
+             /var/www/html/my-app-backend/uploads/events \
+             /var/www/html/my-app-backend/uploads/avatars \
     && chown -R www-data:www-data /var/www/html/my-app-backend/uploads
 
 # ------------------------------------------------------------
