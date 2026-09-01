@@ -29,8 +29,9 @@ you (the humans), not for pasting.
 > - The app must stop writing tourism data to Firestore. Firestore currently
 >   holds only 3 feedback records, so there is effectively nothing to migrate.
 >
-> Backend base URL (ask the web developer for the current one):
-> `https://<host>/my-app-backend`
+> Backend base URL (already deployed and live — TCIMS + TiDB Cloud, both on
+> Render's Singapore-adjacent infrastructure):
+> `https://tourism-cultural-information-management-kof5.onrender.com/my-app-backend`
 > For the Android emulator during local development, use
 > `http://10.0.2.2/my-app-backend` — inside the emulator, `localhost` means
 > the emulator itself, not the developer's PC.
