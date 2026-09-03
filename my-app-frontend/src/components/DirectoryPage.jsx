@@ -1,9 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { useConfirm } from "./ConfirmDialog";
-import { apiList, apiCreate, apiUpdate, apiRemove } from "../api/api";
+import { apiList, apiCreate, apiUpdate, apiRemove, apiUploadPlaceImage, fileUrl } from "../api/api";
 import { toast } from "../utils/toast";
 import { isValidPhone, isValidEmail, isValidWebsite, websiteHref, telHref } from "../utils/contact";
 import Icon from "./Icon";
+import ImageCropper from "./ImageCropper";
+
+// Matches TouristSpots.jsx's photo preview ratio, so photos across every
+// directory page (restaurants, hotels, tourism businesses, tourist spots)
+// crop and display consistently.
+const DIRECTORY_ASPECT = 408 / 140;
 
 /**
  * Reusable directory page (table with CRUD + search + export) — DB-backed.
@@ -32,8 +38,10 @@ export default function DirectoryPage({
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [cropFile, setCropFile] = useState(null);
 
-  const emptyForm = { name: "", category: categoryOptions[0] || "", address: "", contact_no: "", email: "", website: "", status: "Active" };
+  const emptyForm = { name: "", category: categoryOptions[0] || "", address: "", contact_no: "", email: "", website: "", status: "Active", image: "" };
   const [form, setForm] = useState(emptyForm);
 
   // map a DB row -> UI row (category comes from categoryColumn)
@@ -46,6 +54,7 @@ export default function DirectoryPage({
     email: r.email ?? "",
     website: r.website ?? "",
     status: r.status ?? "Active",
+    image: r.image ?? "",
   }), [categoryColumn]);
 
   // map a UI form -> DB payload (category goes back to categoryColumn)
@@ -57,7 +66,24 @@ export default function DirectoryPage({
     email: f.email,
     website: f.website,
     status: f.status,
+    image: f.image,
   });
+
+  const onImageChosen = (file) => { if (file) setCropFile(file); };
+  const onCropApplied = async (blob) => {
+    setCropFile(null);
+    setImageUploading(true);
+    try {
+      const croppedFile = new File([blob], "photo.jpg", { type: "image/jpeg" });
+      const res = await apiUploadPlaceImage(table, croppedFile, form.image || null);
+      setForm(f => ({ ...f, image: res.image }));
+    } catch (e) {
+      toast.error(e.message || "Failed to upload image.");
+    } finally {
+      setImageUploading(false);
+    }
+  };
+  const removeImage = () => setForm(f => ({ ...f, image: "" }));
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
@@ -80,7 +106,7 @@ export default function DirectoryPage({
   const openAdd = () => { setEditingId(null); setForm(emptyForm); setModalOpen(true); };
   const openEdit = (r) => {
     setEditingId(r.id);
-    setForm({ name: r.name, category: r.category, address: r.address, contact_no: r.contact_no, email: r.email, website: r.website, status: r.status });
+    setForm({ name: r.name, category: r.category, address: r.address, contact_no: r.contact_no, email: r.email, website: r.website, status: r.status, image: r.image || "" });
     setModalOpen(true);
   };
 
@@ -173,6 +199,7 @@ export default function DirectoryPage({
           <table style={tableStyle}>
             <thead>
               <tr>
+                <th style={thStyle}></th>
                 <th style={thStyle}>NAME</th>
                 <th style={thStyle}>{categoryLabel.toUpperCase()}</th>
                 <th style={thStyle}>ADDRESS</th>
@@ -184,6 +211,11 @@ export default function DirectoryPage({
             <tbody>
               {filtered.map((r) => (
                 <tr key={r.id}>
+                  <td style={tdStyle}>
+                    {r.image
+                      ? <img src={fileUrl(r.image)} alt="" style={rowThumb} />
+                      : <div style={rowThumbPlaceholder}>{icon ? <Icon name={icon} size={15} style={{ color: "#c7d0dc" }} /> : null}</div>}
+                  </td>
                   <td style={{ ...tdStyle, fontWeight: 600, color: "#111827" }}>{r.name}</td>
                   <td style={tdStyle}>{r.category}</td>
                   <td style={tdStyle}>{r.address}</td>
@@ -208,7 +240,7 @@ export default function DirectoryPage({
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }} colSpan={6}>No entries found.</td></tr>
+                <tr><td style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }} colSpan={7}>No entries found.</td></tr>
               )}
             </tbody>
           </table>
@@ -254,10 +286,42 @@ export default function DirectoryPage({
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
+            <p style={contactHint}>Inactive entries are hidden from the tourist Explore page.</p>
+
+            <label style={fieldLabel}>Photo (optional)</label>
+            {form.image ? (
+              <div style={photoPreviewWrap}>
+                <img src={fileUrl(form.image)} alt="" style={photoPreviewImg} />
+                <div style={photoActions}>
+                  <label style={photoBtn}>
+                    Change
+                    <input
+                      type="file" accept="image/*"
+                      style={{ display: "none" }} disabled={imageUploading}
+                      onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
+                    />
+                  </label>
+                  <button type="button" style={photoRemoveBtn} onClick={removeImage} disabled={imageUploading}>Remove</button>
+                </div>
+              </div>
+            ) : (
+              <label style={photoDropzone}>
+                {icon ? <Icon name={icon} size={20} style={{ color: "#9ca3af" }} /> : null}
+                <span>{imageUploading ? "Uploading…" : "Click to upload a photo"}</span>
+                <input
+                  type="file" accept="image/*"
+                  style={{ display: "none" }} disabled={imageUploading}
+                  onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
+                />
+              </label>
+            )}
+            {cropFile && (
+              <ImageCropper file={cropFile} aspect={DIRECTORY_ASPECT} onCancel={() => setCropFile(null)} onApply={onCropApplied} />
+            )}
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
               <button style={cancelBtn} onClick={() => setModalOpen(false)} disabled={saving}>Cancel</button>
-              <button style={saveBtn} onClick={save} disabled={saving}>
+              <button style={saveBtn} onClick={save} disabled={saving || imageUploading}>
                 {saving ? "Saving…" : editingId ? "Save Changes" : "Add"}
               </button>
             </div>
@@ -305,3 +369,12 @@ const fieldLabel = { display: "block", fontSize: "13px", fontWeight: 600, color:
 const fieldInput = { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1d5db", fontSize: "14px", boxSizing: "border-box" };
 const cancelBtn = { background: "#f1f5f9", border: "none", borderRadius: "8px", padding: "10px 18px", cursor: "pointer", fontSize: "14px", color: "#374151" };
 const saveBtn = { background: "#2563eb", color: "#fff", border: "none", borderRadius: "8px", padding: "10px 18px", cursor: "pointer", fontSize: "14px", fontWeight: 600 };
+
+const rowThumb = { width: "40px", height: "40px", borderRadius: "8px", objectFit: "cover", flexShrink: 0, border: "1px solid #eef2f8" };
+const rowThumbPlaceholder = { width: "40px", height: "40px", borderRadius: "8px", flexShrink: 0, background: "#f8fafc", border: "1px solid #eef2f8", display: "flex", alignItems: "center", justifyContent: "center" };
+const photoDropzone = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, height: "100px", borderRadius: "10px", border: "1.5px dashed #d1d5db", background: "#f8fafc", color: "#6b7280", fontSize: "13px", cursor: "pointer", textAlign: "center" };
+const photoPreviewWrap = { position: "relative", borderRadius: "10px", overflow: "hidden", border: "1px solid #e6ecf5" };
+const photoPreviewImg = { width: "100%", height: "140px", objectFit: "cover", display: "block" };
+const photoActions = { position: "absolute", top: 8, right: 8, display: "flex", gap: 6 };
+const photoBtn = { background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer", display: "inline-flex", alignItems: "center" };
+const photoRemoveBtn = { background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer" };

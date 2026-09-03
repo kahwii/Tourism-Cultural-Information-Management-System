@@ -1,11 +1,13 @@
 <?php
 /*
-  Upload a photo for a Tourist Spot or Heritage Site (admin only).
+  Upload a photo for a Tourist Spot, Heritage Site, Restaurant, Hotel,
+  or Tourism Business (admin only).
 
   POST (multipart/form-data):
     - image      (the image file, already cropped client-side to the
                    display aspect ratio — see ImageCropper.jsx)
-    - folder     ("tourist_spots" or "heritage_sites")
+    - folder     ("tourist_spots", "heritage_sites", "restaurants",
+                   "hotels", or "tourism_businesses")
     - old_image  (optional, relative path of a previous image to delete)
 
   Same pattern as upload_event_image.php: this endpoint only turns an
@@ -29,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$ALLOWED_FOLDERS = ["tourist_spots", "heritage_sites"];
+$ALLOWED_FOLDERS = ["tourist_spots", "heritage_sites", "restaurants", "hotels", "tourism_businesses"];
 $folder = $_POST['folder'] ?? '';
 if (!in_array($folder, $ALLOWED_FOLDERS, true)) {
     http_response_code(400);

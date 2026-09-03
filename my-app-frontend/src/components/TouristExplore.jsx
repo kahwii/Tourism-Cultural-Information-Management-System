@@ -15,30 +15,74 @@ const legacyImgFor = (name) => `/places/${slug(name)}.jpg`;
 // wins; the bundled /places/*.jpg files are a fallback only.
 const placeImgSrc = (p) => (p.image ? fileUrl(p.image) : legacyImgFor(p.name));
 
-/* ---- merge spots + heritage, dedupe by normalized name ---- */
+/* ---- merge spots + heritage + restaurants + hotels + businesses, dedupe by normalized name ---- */
 const normalize = (s) => s.toLowerCase().replace(/\bparish\b/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+
+// Restaurants/Hotels/Tourism Businesses don't have a curated description
+// column in the DB (unlike Tourist Spots' generic spotDescription), so a
+// short templated line is generated here instead of leaving the "About"
+// section blank.
+const diningDescription = (cuisine, lang) => lang === "fil"
+  ? `Kainan sa Mandaluyong City na naghahain ng ${cuisine ? cuisine.toLowerCase() : "iba't ibang"} lutuin.`
+  : `A dining spot in Mandaluyong City serving ${cuisine ? cuisine.toLowerCase() : "a variety of"} cuisine.`;
+const lodgingDescription = (type, lang) => lang === "fil"
+  ? `Tuluyan (${type || "hotel"}) sa Mandaluyong City.`
+  : `A place to stay in Mandaluyong City (${type || "hotel"}).`;
+const businessDescription = (type, lang) => lang === "fil"
+  ? `Nakarehistrong negosyong pangturismo sa Mandaluyong City (${type || "establisyimento"}).`
+  : `A registered tourism business in Mandaluyong City (${type || "establishment"}).`;
+
 // Built per-render (memoized on `lang` + the DB rows) so heritage-church
 // descriptions can swap to their Filipino translation when the tourist
 // toggles language. Landmarks/institutions/schools/parks don't have a
 // curated Filipino description yet, so they fall back to the English text.
 //
-// `heritageSites` / `touristSpots` come from the database (heritage_sites /
-// tourist_spots tables, via apiList) — this used to read a hardcoded array
-// from tcimsData.js instead, which meant editing a place in the admin had
-// zero effect on what tourists actually saw here.
-const buildPlaces = (lang, heritageSites, touristSpots) => {
+// All five sources come from the database (heritage_sites / tourist_spots /
+// restaurants / hotels / tourism_businesses tables, via apiList) — this used
+// to read a hardcoded array from tcimsData.js instead, which meant editing a
+// place in the admin had zero effect on what tourists actually saw here.
+// Restaurants/hotels/businesses used to be invisible here entirely (only
+// used to attach contact info onto a Tourist Spot with a matching name) —
+// now they're their own browsable cards, each carrying its own contact info
+// directly so no separate name-matching lookup is needed.
+const buildPlaces = (lang, heritageSites, touristSpots, restaurants, hotels, businesses) => {
   const raw = [
     ...heritageSites.map(h => ({
       name: h.name, category: h.category, location: h.location,
       description: (lang === "fil" && HERITAGE_FIL[h.name]?.description) || h.description,
-      coordinates: h.coordinates, est: h.est, image: h.image || "",
+      coordinates: h.coordinates, est: h.est, image: h.image || "", kind: "heritage",
     })),
     ...touristSpots
       .filter(s => (s.status || "Active") === "Active")
       .map(s => ({
         name: s.name, category: s.category, location: s.address,
         description: spotDescription(s.category || "Others", "Mandaluyong City", lang),
-        coordinates: s.coordinates, est: "—", image: s.image || "",
+        coordinates: s.coordinates, est: "—", image: s.image || "", kind: "spot",
+        contact_no: s.contact_no, email: s.email, website: s.website,
+      })),
+    ...restaurants
+      .filter(r => (r.status || "Active") === "Active")
+      .map(r => ({
+        name: r.name, category: r.cuisine || "Restaurant", location: r.address,
+        description: diningDescription(r.cuisine, lang),
+        coordinates: "", est: "—", image: r.image || "", kind: "restaurant",
+        contact_no: r.contact_no, email: r.email, website: r.website,
+      })),
+    ...hotels
+      .filter(h => (h.status || "Active") === "Active")
+      .map(h => ({
+        name: h.name, category: h.type || "Hotel", location: h.address,
+        description: lodgingDescription(h.type, lang),
+        coordinates: "", est: "—", image: h.image || "", kind: "hotel",
+        contact_no: h.contact_no, email: h.email, website: h.website,
+      })),
+    ...businesses
+      .filter(b => (b.status || "Active") === "Active")
+      .map(b => ({
+        name: b.name, category: b.type || "Business", location: b.address,
+        description: businessDescription(b.type, lang),
+        coordinates: "", est: "—", image: b.image || "", kind: "business",
+        contact_no: b.contact_no, email: b.email, website: b.website,
       })),
   ];
   const seen = new Set(); const out = [];
@@ -46,8 +90,14 @@ const buildPlaces = (lang, heritageSites, touristSpots) => {
   return out;
 };
 
-/* ---- category buckets + colors ---- */
-const bucketOf = (c) => {
+/* ---- category buckets + colors ----
+   Restaurants/hotels/businesses are bucketed by `kind` directly (their
+   cuisine/type text is too varied and free-form to regex-match reliably);
+   heritage sites and tourist spots keep the original category-text rules. */
+const bucketOf = (c, kind) => {
+  if (kind === "restaurant") return "Dining";
+  if (kind === "hotel") return "Hotels";
+  if (kind === "business") return "Shops & Business";
   if (/church|abbey|chapel|shrine|parish/i.test(c)) return "Churches";
   if (/landmark|monument|structure|history|cultural/i.test(c)) return "Landmarks";
   if (/institution|health|bank|correctional/i.test(c)) return "Institutions";
@@ -63,59 +113,57 @@ const GRAD = {
   "Schools": "linear-gradient(135deg,#0e7490,#06b6d4)",
   "Parks & Rec": "linear-gradient(135deg,#166534,#22c55e)",
   "Shopping": "linear-gradient(135deg,#7e22ce,#a855f7)",
+  "Dining": "linear-gradient(135deg,#9a3412,#f97316)",
+  "Hotels": "linear-gradient(135deg,#4c1d95,#8b5cf6)",
+  "Shops & Business": "linear-gradient(135deg,#0f766e,#2dd4bf)",
   "Others": "linear-gradient(135deg,#475569,#94a3b8)"
 };
 export default function TouristExplore() {
   const { lang, t } = useLanguage();
-  // Heritage sites + tourist spots now come from the database (the admin
-  // pages actually affect what's shown here, instead of a hardcoded list).
+  // Heritage sites, tourist spots, restaurants, hotels, and tourism
+  // businesses all come from the database (the admin pages actually affect
+  // what's shown here, instead of a hardcoded list).
   const [heritageSites, setHeritageSites] = useState([]);
   const [touristSpots, setTouristSpots] = useState([]);
+  const [restaurants, setRestaurants] = useState([]);
+  const [hotels, setHotels] = useState([]);
+  const [businesses, setBusinesses] = useState([]);
   const [placesLoaded, setPlacesLoaded] = useState(false);
   useEffect(() => {
     let cancelled = false;
     Promise.all([
       apiList("heritage_sites").catch(() => []),
       apiList("tourist_spots").catch(() => []),
-    ]).then(([h, s]) => {
+      apiList("restaurants").catch(() => []),
+      apiList("hotels").catch(() => []),
+      apiList("tourism_businesses").catch(() => []),
+    ]).then(([h, s, r, ho, b]) => {
       if (cancelled) return;
       setHeritageSites(Array.isArray(h) ? h : []);
       setTouristSpots(Array.isArray(s) ? s : []);
+      setRestaurants(Array.isArray(r) ? r : []);
+      setHotels(Array.isArray(ho) ? ho : []);
+      setBusinesses(Array.isArray(b) ? b : []);
       setPlacesLoaded(true);
     });
     return () => { cancelled = true; };
   }, []);
-  const PLACES = useMemo(() => buildPlaces(lang, heritageSites, touristSpots), [lang, heritageSites, touristSpots]);
-  const BUCKETS = useMemo(() => ["All", ...Array.from(new Set(PLACES.map(p => bucketOf(p.category))))], [PLACES]);
+  const PLACES = useMemo(
+    () => buildPlaces(lang, heritageSites, touristSpots, restaurants, hotels, businesses),
+    [lang, heritageSites, touristSpots, restaurants, hotels, businesses]
+  );
+  const BUCKETS = useMemo(() => ["All", ...Array.from(new Set(PLACES.map(p => bucketOf(p.category, p.kind))))], [PLACES]);
   const [search, setSearch] = useState("");
   const [bucket, setBucket] = useState("All");
   const [visited, setVisited] = useState([]);
   const [detail, setDetail] = useState(null);
-  // Contact details for restaurants/hotels/businesses live in separate
-  // directory tables and are matched onto a place by normalised name.
-  // Tourist spots carry their own contact_no/email/website directly (already
-  // fetched above via touristSpots), so only the other three need fetching
-  // here. Failure is non-fatal: the page simply shows no contact block
-  // rather than breaking the whole Explore view.
-  const [contacts, setContacts] = useState({});
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      apiList("restaurants").catch(() => []),
-      apiList("hotels").catch(() => []),
-      apiList("tourism_businesses").catch(() => []),
-    ]).then((sets) => {
-      if (cancelled) return;
-      const map = {};
-      [...touristSpots, ...sets.flat()].forEach((r) => {
-        if (!r?.name || !hasContact(r)) return;
-        map[normalize(r.name)] = { contact_no: r.contact_no, email: r.email, website: r.website };
-      });
-      setContacts(map);
-    });
-    return () => { cancelled = true; };
-  }, [touristSpots]);
-  const contactFor = (name) => contacts[normalize(name)] || null;
+  // Every place now carries its own contact_no/email/website directly (see
+  // buildPlaces above), so a place's contact block is just its own fields —
+  // no separate name-matching lookup against other directory tables needed.
+  const contactFor = (name) => {
+    const p = PLACES.find(pl => pl.name === name);
+    return p && hasContact(p) ? { contact_no: p.contact_no, email: p.email, website: p.website } : null;
+  };
   const [fb, setFb] = useState(null);
   // No default rating — an untouched 5-star used to silently promote
   // no-polarity comments (e.g. ":(", "pumunta kami noong Sabado") to
@@ -147,7 +195,7 @@ export default function TouristExplore() {
 
   const filtered = PLACES.filter(p => {
     const s = [p.name, p.category, p.location].join(" ").toLowerCase().includes(search.toLowerCase());
-    const b = bucket === "All" || bucketOf(p.category) === bucket;
+    const b = bucket === "All" || bucketOf(p.category, p.kind) === bucket;
     return s && b;
   });
 
@@ -229,7 +277,7 @@ export default function TouristExplore() {
       {/* CARDS */}
       <div style={grid} className="tc-stagger">
         {filtered.map((p, i) => {
-          const b = bucketOf(p.category);
+          const b = bucketOf(p.category, p.kind);
           const isV = isVisited(p.name);
           const r = ratingFor(p.name);
           return (
@@ -266,7 +314,7 @@ export default function TouristExplore() {
       {detail && (
         <div style={overlay} className="tc-modal-backdrop" onClick={() => setDetail(null)}>
           <div style={detailModal} onClick={(e) => e.stopPropagation()}>
-            <div style={{ ...detailHero, background: GRAD[bucketOf(detail.category)] }}>
+            <div style={{ ...detailHero, background: GRAD[bucketOf(detail.category, detail.kind)] }}>
               <img src={placeImgSrc(detail)} alt="" style={headImg} onError={(e) => { e.currentTarget.style.display = "none"; }} />
               <div style={headScrim} />
               <button style={{ ...closeBtn, zIndex: 2 }} className="tc-btn" onClick={() => setDetail(null)}>✕</button>

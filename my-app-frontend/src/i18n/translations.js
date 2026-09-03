@@ -30,6 +30,9 @@ export const UI = {
   bucketSchools: { en: "Schools", fil: "Mga Paaralan" },
   "bucketParks & Rec": { en: "Parks & Rec", fil: "Mga Parke" },
   bucketShopping: { en: "Shopping", fil: "Mga Mall" },
+  bucketDining: { en: "Dining", fil: "Mga Kainan" },
+  bucketHotels: { en: "Hotels", fil: "Mga Hotel" },
+  "bucketShops & Business": { en: "Shops & Business", fil: "Mga Tindahan at Negosyo" },
   bucketOthers: { en: "Others", fil: "Iba Pa" },
 
   checkIn: { en: "Check in", fil: "Mag-check-in" },
@@ -94,7 +97,9 @@ export function categoryLabel(raw, lang) {
 const BUCKET_KEYS = {
   "All": "bucketAll", "Churches": "bucketChurches", "Landmarks": "bucketLandmarks",
   "Institutions": "bucketInstitutions", "Schools": "bucketSchools",
-  "Parks & Rec": "bucketParks & Rec", "Shopping": "bucketShopping", "Others": "bucketOthers",
+  "Parks & Rec": "bucketParks & Rec", "Shopping": "bucketShopping",
+  "Dining": "bucketDining", "Hotels": "bucketHotels", "Shops & Business": "bucketShops & Business",
+  "Others": "bucketOthers",
 };
 export function bucketLabel(bucket, lang) {
   const key = BUCKET_KEYS[bucket];
