@@ -73,12 +73,12 @@ export default function ReportsAnalytics() {
   const [range, setRange] = useState("This Year");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [db, setDb] = useState({ reviews: [], certificates: [], events: [], tourist_spots: [], restaurants: [], hotels: [], tourism_businesses: [], heritage_sites: [] });
+  const [db, setDb] = useState({ reviews: [], certificates: [], events: [], tourist_spots: [], restaurants: [], hotels: [], tourism_businesses: [], heritage_sites: [], visits: [] });
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
     try {
-      const tables = ["reviews", "certificates", "events", "tourist_spots", "restaurants", "hotels", "tourism_businesses", "heritage_sites"];
+      const tables = ["reviews", "certificates", "events", "tourist_spots", "restaurants", "hotels", "tourism_businesses", "heritage_sites", "visits"];
       const results = await Promise.all(tables.map(t => apiList(t).catch(() => [])));
       const next = {};
       tables.forEach((t, i) => { next[t] = Array.isArray(results[i]) ? results[i] : []; });
@@ -225,6 +225,60 @@ export default function ReportsAnalytics() {
     { name: "Events", value: db.events.length },
   ].sort((a, b) => b.value - a.value);
 
+  // ---- Heritage Trail engagement (from the `visits` table — GPS check-ins
+  // recorded by BOTH the Be@Mandaluyong mobile app and the tourist website,
+  // since they share the same TiDB database). `visits` holds each user's
+  // CURRENT check-in state (one row per user+place, toggled on/off), not a
+  // running event log — so this section reports live standing, not a
+  // period-scoped count, and is deliberately NOT filtered by the date-range
+  // selector above (a toggle-off would otherwise make past engagement vanish).
+  const trailSize = db.heritage_sites.length;
+  const visitsByUser = {};
+  db.visits.forEach(v => {
+    const uid = v.user_id ?? "unknown";
+    (visitsByUser[uid] = visitsByUser[uid] || []).push(v.place);
+  });
+  const participantIds = Object.keys(visitsByUser);
+  const totalCheckins = db.visits.length;
+  const uniqueParticipants = participantIds.length;
+  const allDistinctPlaces = [...new Set(db.visits.map(v => v.place))];
+  // `visits.place` is free text, not a foreign key into `heritage_sites` — a
+  // check-in can reference a site that was later renamed or removed from the
+  // directory. Coverage/completion must only count places that STILL exist
+  // there, or coverage can read over 100% and "completed the trail" can be
+  // satisfied without ever visiting the current 33 (or whatever) real sites.
+  const heritageSiteNames = new Set(db.heritage_sites.map(h => h.name));
+  const distinctPlacesVisited = allDistinctPlaces.filter(p => heritageSiteNames.has(p)).length;
+  const unmatchedPlaces = allDistinctPlaces.filter(p => !heritageSiteNames.has(p));
+  const trailCoveragePct = trailSize ? Math.round((distinctPlacesVisited / trailSize) * 100) : 0;
+  const avgSitesPerParticipant = uniqueParticipants ? (totalCheckins / uniqueParticipants).toFixed(1) : "0.0";
+  // "Completed" = has checked into every site currently in the Heritage Sites
+  // directory. If CCAT adds a new site, past completions correctly stop
+  // counting until those participants catch up — the bar is always "all of
+  // today's trail", not a frozen snapshot. Only real, still-listed sites count
+  // toward this, for the same reason as coverage above.
+  const fullTrailCompletions = trailSize
+    ? participantIds.filter(uid => new Set(visitsByUser[uid].filter(p => heritageSiteNames.has(p))).size >= trailSize).length
+    : 0;
+  const trailCompletionPct = uniqueParticipants ? Math.round((fullTrailCompletions / uniqueParticipants) * 100) : 0;
+
+  const byTrailPlace = {};
+  db.visits.forEach(v => {
+    const p = v.place || "Unknown";
+    if (!heritageSiteNames.has(p)) return; // ranking is "heritage sites", not stray place names
+    byTrailPlace[p] = (byTrailPlace[p] || 0) + 1;
+  });
+  const mostVisitedSites = Object.entries(byTrailPlace)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+  // Surfaced, not hidden: these are check-ins CCAT should look into — either
+  // a site was renamed/removed from the directory after visitors checked in,
+  // or stray/test data got written to `visits`.
+  const unmatchedCheckins = unmatchedPlaces
+    .map(name => ({ name, value: db.visits.filter(v => v.place === name).length }))
+    .sort((a, b) => b.value - a.value);
+
   // ---- topics ----
   const topics = Object.entries(TOPIC_KEYWORDS).map(([topic, kws]) => ({
     topic, count: reviews.filter(r => { const c = (r.comment || "").toLowerCase(); return kws.some(k => c.includes(k)); }).length,
@@ -262,6 +316,17 @@ export default function ReportsAnalytics() {
         { label: "Total Events", value: String(totalEvents) },
         { label: "Heritage Sites", value: String(db.heritage_sites.length) },
         { label: "Tourist Spots", value: String(db.tourist_spots.length) },
+      ],
+    },
+    {
+      key: "trail", title: "Heritage Trail Engagement", icon: "", color: "#1D4ED8",
+      desc: "GPS check-ins from the Be@Mandaluyong app and website, combined.",
+      metrics: [
+        { label: "Total Check-ins", value: String(totalCheckins) },
+        { label: "Unique Participants", value: String(uniqueParticipants) },
+        { label: "Trail Coverage", value: `${trailCoveragePct}%` },
+        { label: "Full-Trail Completions", value: `${fullTrailCompletions} (${trailCompletionPct}%)` },
+        { label: "Most Visited Site", value: mostVisitedSites[0]?.name || "—" },
       ],
     },
     {
@@ -320,6 +385,19 @@ export default function ReportsAnalytics() {
     }
     if (r.key === "events") {
       ex.push({ title: "Inventory Breakdown", header: ["Category", "Count"], data: directoryBreakdown.map(d => [d.name, d.value]) });
+    }
+    if (r.key === "trail") {
+      ex.push({ title: "Heritage Trail Standing", header: ["Measure", "Value"], data: [
+        ["Heritage Sites on the Trail", trailSize],
+        ["Total Check-ins", totalCheckins],
+        ["Unique Participants", uniqueParticipants],
+        ["Distinct Sites Visited (any participant)", `${distinctPlacesVisited} / ${trailSize}`],
+        ["Trail Coverage", `${trailCoveragePct}%`],
+        ["Avg. Sites per Participant", avgSitesPerParticipant],
+        ["Completed the Full Trail", `${fullTrailCompletions} (${trailCompletionPct}% of participants)`],
+      ]});
+      if (mostVisitedSites.length) ex.push({ title: "Most Visited Heritage Sites", header: ["#", "Site", "Check-ins"], data: mostVisitedSites.map((p, i) => [i + 1, p.name, p.value]) });
+      if (unmatchedCheckins.length) ex.push({ title: "Check-ins Needing Cleanup (place not in current directory)", header: ["Place Name", "Check-ins"], data: unmatchedCheckins.map(p => [p.name, p.value]) });
     }
     return ex;
   };
@@ -518,6 +596,9 @@ export default function ReportsAnalytics() {
     } else {
       out.push("No visitor feedback was recorded for the selected period. Once tourists submit reviews through the Be@Mandaluyong app, this section will summarize their sentiment automatically.");
     }
+    if (totalCheckins > 0) {
+      out.push(`On the Heritage Trail, ${uniqueParticipants} visitor(s) have logged ${totalCheckins} GPS check-in(s) via the Be@Mandaluyong app and website combined, covering ${trailCoveragePct}% of the ${trailSize} listed heritage sites, with ${fullTrailCompletions} participant(s) completing the entire trail. This figure is cumulative and not limited to the selected date range.`);
+    }
     out.push(`On accreditation, ${approvedCerts} establishment(s) are fully accredited, ${pendingCerts} are under review, and ${rejectedCerts} were rejected. The tourism directory currently lists ${dirTotal} establishment(s) and destination(s) across the city.`);
     return out;
   };
@@ -537,6 +618,12 @@ export default function ReportsAnalytics() {
     if (negativePct >= 25) recs.push("Address recurring negative feedback: investigate the destinations and service topics with the highest complaint volume.");
     if (pendingCerts > 0) recs.push(`Process the ${pendingCerts} pending accreditation application(s) to keep the tourism directory current.`);
     if (totalEvents === 0) recs.push("Schedule and publish upcoming cultural events to sustain tourist engagement.");
+    if (trailSize > 0 && totalCheckins > 0 && trailCoveragePct < 60) {
+      recs.push(`Promote lesser-visited heritage sites — only ${trailCoveragePct}% of the ${trailSize} sites on the trail have been checked into so far.`);
+    }
+    if (trailSize > 0 && uniqueParticipants > 0 && trailCompletionPct < 20) {
+      recs.push("Consider an incentive (badge, reward, or certificate) for visitors nearing full Heritage Trail completion to encourage them to finish.");
+    }
     if (highestRated[0]) recs.push(`Promote top-rated destinations such as ${highestRated[0].name} in city tourism campaigns.`);
     recs.push("Continue monitoring visitor sentiment monthly to detect changes in satisfaction early.");
     return recs;
@@ -787,6 +874,26 @@ export default function ReportsAnalytics() {
         table("", ["#", "Topic", "Mentions"], topicRows.map((t, i) => [i + 1, t.topic, String(t.count)]));
       }
 
+      // Combined app + website GPS check-ins — all-time standing, not scoped
+      // to the selected date range (see the on-screen note for why).
+      if (trailSize > 0 && totalCheckins > 0) {
+        y = sectionHead("Heritage Trail Engagement", y);
+        const trailNote = doc.splitTextToSize(
+          `${uniqueParticipants} visitor(s) have checked in at least once via the Be@Mandaluyong app or website, logging ${totalCheckins} check-in(s) across ${distinctPlacesVisited} of ${trailSize} heritage sites (${trailCoveragePct}% trail coverage). ${fullTrailCompletions} participant(s) (${trailCompletionPct}%) have completed the entire trail. Figures are all-time, not limited to the ${range.replace("This ", "").toLowerCase()} selected above.`,
+          W - 2 * M);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(55, 65, 81);
+        doc.text(trailNote, M, y); y += trailNote.length * 5 + 6;
+        table("", ["Measure", "Value"], [
+          ["Total Check-ins", String(totalCheckins)],
+          ["Unique Participants", String(uniqueParticipants)],
+          ["Trail Coverage", `${distinctPlacesVisited} / ${trailSize} sites (${trailCoveragePct}%)`],
+          ["Avg. Sites per Participant", avgSitesPerParticipant],
+          ["Completed Full Trail", `${fullTrailCompletions} (${trailCompletionPct}%)`],
+        ]);
+        if (mostVisitedSites.length) table("Most Visited Heritage Sites", ["#", "Site", "Check-ins"], mostVisitedSites.map((p, i) => [i + 1, p.name, p.value]));
+        if (unmatchedCheckins.length) table("Check-ins Needing Cleanup (place not in current directory)", ["Place Name", "Check-ins"], unmatchedCheckins.map(p => [p.name, p.value]));
+      }
+
       y = sectionHead("Establishment Compliance", y);
       table("", ["Status", "Count"], [["Approved / Accredited", approvedCerts], ["Under Review", pendingCerts], ["Rejected", rejectedCerts]]);
       table("Tourism Directory", ["Category", "Count"], directoryBreakdown.map(d => [d.name, d.value]));
@@ -1011,6 +1118,60 @@ export default function ReportsAnalytics() {
         <RankTable title="Highest Rated Places" rows={highestRated} suffix=" ★" />
         <RankTable title="Tourism Directory Breakdown" rows={directoryBreakdown} />
       </div>
+
+      {/* HERITAGE TRAIL ENGAGEMENT — GPS check-ins, combined from the mobile
+          app and the website (same database). All-time standing, not scoped
+          to the Date Range filter above; see the note inline. */}
+      <h2 style={sectionTitle}>Heritage Trail Engagement</h2>
+      <div style={card}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
+          <h3 style={{ ...cardTitle, marginBottom: 4 }}>Current Trail Standing</h3>
+          <span style={{ fontSize: 12, color: "#9ca3af" }}>All-time — combines app &amp; website check-ins, not affected by the date range above</span>
+        </div>
+        {trailSize === 0 ? (
+          <div style={{ color: "#9ca3af", fontSize: 14, marginTop: 8 }}>No heritage sites have been added to the directory yet.</div>
+        ) : totalCheckins === 0 ? (
+          <div style={{ color: "#9ca3af", fontSize: 14, marginTop: 8 }}>No Heritage Trail check-ins recorded yet.</div>
+        ) : (
+          <>
+            <div style={{ ...statGrid, marginTop: 12 }}>
+              <Stat label="Total Check-ins" value={totalCheckins.toLocaleString()} note="across all participants" />
+              <Stat label="Unique Participants" value={uniqueParticipants.toLocaleString()} note="distinct visitors" />
+              <Stat label="Trail Coverage" value={`${trailCoveragePct}%`} note={`${distinctPlacesVisited} of ${trailSize} sites visited`} />
+              <Stat label="Avg. Sites / Participant" value={avgSitesPerParticipant} note="engagement depth" />
+              <Stat label="Full-Trail Completions" value={`${fullTrailCompletions}`} note={`${trailCompletionPct}% of participants`} />
+            </div>
+            <p style={statNote}>
+              <b>{uniqueParticipants}</b> visitor(s) have checked in at least once, logging <b>{totalCheckins}</b> check-in(s)
+              across <b>{distinctPlacesVisited}</b> of the <b>{trailSize}</b> heritage sites on the trail ({trailCoveragePct}% coverage).
+              {fullTrailCompletions > 0
+                ? ` ${fullTrailCompletions} participant(s) (${trailCompletionPct}%) have completed the entire trail.`
+                : " No participant has completed the entire trail yet."}
+            </p>
+          </>
+        )}
+      </div>
+      {(mostVisitedSites.length > 0 || unmatchedCheckins.length > 0) && (
+        <div style={chartGrid} className="tc-stagger">
+          {mostVisitedSites.length > 0 && <RankTable title="Most Visited Heritage Sites" rows={mostVisitedSites} suffix=" check-ins" />}
+          {unmatchedCheckins.length > 0 && (
+            <div style={card}>
+              <h3 style={cardTitle}>⚠ Check-ins Needing Cleanup</h3>
+              <p style={{ ...cardDesc, marginBottom: 14 }}>
+                These place names appear in Heritage Trail check-ins but don&apos;t match any site currently
+                in the Heritage Sites directory — likely renamed or removed since the check-in was made.
+                Excluded from Trail Coverage above.
+              </p>
+              {unmatchedCheckins.map((p, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "6px 0", borderBottom: i < unmatchedCheckins.length - 1 ? "1px solid #f1f5f9" : "none" }}>
+                  <span style={{ color: "#374151" }}>{p.name}</span>
+                  <span style={{ fontWeight: 600, color: "#9ca3af" }}>{p.value} check-in{p.value === 1 ? "" : "s"}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* EXPORTABLE REPORTS */}
       <h2 style={sectionTitle}>Generate &amp; Export Reports</h2>
