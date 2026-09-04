@@ -106,6 +106,13 @@ export async function apiFeedbackMine() {
 export async function apiVisitsMine() {
   return handle(await fetch(`${BASE}/visits.php`, { headers: authHeaders() }));
 }
+// Only GPS+photo-verified Heritage Trail check-ins (checkin.php) — excludes
+// Explore's casual self-report check-ins, which can never count toward
+// Trail completion (see config/heritage_trail.php's trail_status() on the
+// backend, the actual gate on the Heritage Mug + Trail Certificate).
+export async function apiVisitsVerified() {
+  return handle(await fetch(`${BASE}/visits.php?verified=1`, { headers: authHeaders() }));
+}
 export async function apiVisitToggle(place) {
   return handle(await fetch(`${BASE}/visits.php`, {
     method: "POST", headers: jsonHeaders(), body: JSON.stringify({ place })

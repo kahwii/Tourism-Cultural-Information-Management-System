@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { apiVisitsMine, apiVisitToggle, apiFeedbackMine, apiCheckinWithPhotos, apiRewardMine, apiRewardClaim, apiList, fileUrl } from "../api/api";
+import { apiVisitsMine, apiVisitsVerified, apiVisitToggle, apiFeedbackMine, apiCheckinWithPhotos, apiRewardMine, apiRewardClaim, apiList, fileUrl } from "../api/api";
 import { verifyAtLocation, getPosition, CHECKIN_RADIUS_M } from "../utils/geo";
 import { computePoints, tierFor } from "../utils/gamification";
 import CheckInPhotos from "./CheckInPhotos";
@@ -46,7 +46,15 @@ export default function TouristTrail() {
     return () => { cancelled = true; };
   }, []);
   const TRAIL = useMemo(() => buildTrail(lang, heritageSites), [lang, heritageSites]);
+  // `visited` = every check-in (casual Explore self-reports included) — used
+  // only for the generic points/tier display, so it stays consistent with
+  // what the Explore page shows for the same tourist.
+  // `verifiedVisited` = GPS+photo-verified check-ins only (checkin.php) —
+  // this is what actually drives trail progress, the badge, and mug
+  // eligibility, matching config/heritage_trail.php's trail_status() on the
+  // backend exactly. Explore's casual check-in button can never move these.
   const [visited, setVisited] = useState([]);
+  const [verifiedVisited, setVerifiedVisited] = useState([]);
   const [reviewsCount, setReviewsCount] = useState(0);
   const [busy, setBusy] = useState("");
   const [photoFor, setPhotoFor] = useState(null); // place awaiting photo proof
@@ -57,13 +65,14 @@ export default function TouristTrail() {
 
   const load = useCallback(() => {
     apiVisitsMine().then(d => setVisited(Array.isArray(d) ? d : [])).catch(() => setVisited([]));
+    apiVisitsVerified().then(d => setVerifiedVisited(Array.isArray(d) ? d : [])).catch(() => setVerifiedVisited([]));
     apiFeedbackMine().then(d => setReviewsCount(Array.isArray(d) ? d.length : 0)).catch(() => {});
     apiRewardMine().then(d => setReward(d || null)).catch(() => {});
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const isVisited = (name) => visited.includes(name);
-  const done = TRAIL.filter(t => visited.includes(t.name)).length;
+  const isVisited = (name) => verifiedVisited.includes(name);
+  const done = TRAIL.filter(t => verifiedVisited.includes(t.name)).length;
   const pct = TRAIL.length ? Math.round((done / TRAIL.length) * 100) : 0;
   const completed = done === TRAIL.length && TRAIL.length > 0;
 

@@ -48,17 +48,25 @@ function save_photo($f, $label, $uid, $allowed, $absDir, $relDir) {
 $esc = fn($v) => mysqli_real_escape_string($conn, (string)$v);
 $p = $esc($place);
 
-// record the visit if not already checked in
-$stmt = mysqli_prepare($conn, "SELECT id FROM visits WHERE user_id = ? AND place = ? LIMIT 1");
-mysqli_stmt_bind_param($stmt, "is", $uid, $place);
-mysqli_stmt_execute($stmt);
-mysqli_stmt_store_result($stmt);
-$exists = mysqli_stmt_num_rows($stmt) > 0;
-mysqli_stmt_close($stmt);
-if (!$exists) {
-    $stmt = mysqli_prepare($conn, "INSERT INTO visits (user_id, place) VALUES (?, ?)");
+// Record the visit as VERIFIED (this endpoint is only reached after GPS
+// proximity passed and a selfie + site photo were captured — see
+// verifyAtLocation() on the frontend and config/heritage_trail.php's
+// trail_status(), which only counts verified = 1 rows).
+//
+// If a row already exists for this (user, place) — e.g. the tourist earlier
+// tapped Explore's casual check-in for this same place, which only ever
+// writes verified = 0 — it's upgraded to verified = 1 here rather than
+// left alone, since this real GPS+photo proof supersedes an earlier
+// self-report.
+$res = mysqli_query($conn, "SELECT id, verified FROM visits WHERE user_id = $uid AND place = '$p' LIMIT 1");
+$existing = $res ? mysqli_fetch_assoc($res) : null;
+
+if (!$existing) {
+    $stmt = mysqli_prepare($conn, "INSERT INTO visits (user_id, place, verified) VALUES (?, ?, 1)");
     mysqli_stmt_bind_param($stmt, "is", $uid, $place);
     mysqli_stmt_execute($stmt);
+} elseif (!$existing['verified']) {
+    mysqli_query($conn, "UPDATE visits SET verified = 1 WHERE id = " . (int)$existing['id']);
 }
 
 // store both photos as proof

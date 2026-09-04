@@ -38,12 +38,20 @@ function trail_churches($conn) {
 $TRAIL_CHURCHES = trail_churches($conn);
 
 // Returns ["done" => int, "total" => int, "completed" => bool, "date" => string|null (latest visit)]
+//
+// Only counts verified = 1 rows — i.e. check-ins that went through
+// checkin.php's GPS-proximity + selfie/site-photo flow. The Explore page's
+// casual check-in (api/visits.php) writes verified = 0 rows precisely so it
+// can NEVER satisfy trail completion here; see add_visit_verification.sql
+// for the incident this fixes (a tester "completed" the trail, and became
+// eligible for the real physical mug, just by tapping Explore's check-in
+// button on each church — no GPS, no photo, no actual visit).
 function trail_status($conn, $uid, $churches) {
     if (!$churches) return ["done" => 0, "total" => 0, "completed" => false, "date" => null];
     $in = "'" . implode("','", array_map(fn($c) => mysqli_real_escape_string($conn, $c), $churches)) . "'";
     $res = mysqli_query($conn,
         "SELECT place, MAX(visited_at) AS last_visit FROM visits
-         WHERE user_id = $uid AND place IN ($in) GROUP BY place");
+         WHERE user_id = $uid AND place IN ($in) AND verified = 1 GROUP BY place");
     $visitedCount = 0;
     $latest = null;
     while ($r = mysqli_fetch_assoc($res)) {
