@@ -90,33 +90,40 @@ function Login() {
 
   // On page load, pick up a Google sign-in that was completed via full-page
   // redirect (mobile — see handleGoogle below). Popup-based sign-in (desktop)
-  // resolves inline in handleGoogle and never touches this path; this only
-  // does anything when GOOGLE_ROLE_KEY was left behind by a redirect.
+  // resolves inline in handleGoogle and never touches this path.
+  //
+  // Deliberately NOT gated on GOOGLE_ROLE_KEY being present in sessionStorage:
+  // the redirect trip bounces through the Firebase authDomain (a different
+  // origin) and back, and sessionStorage is not guaranteed to survive that
+  // round trip on every mobile browser. getRedirectResult() itself is backed
+  // by Firebase's own IndexedDB-based pending-redirect state, which IS
+  // designed to survive the trip — so it's called unconditionally on every
+  // load, and simply resolves to null when there's nothing to pick up.
   useEffect(() => {
-    const pendingRole = sessionStorage.getItem(GOOGLE_ROLE_KEY);
-    if (!pendingRole || !firebaseConfigured) return;
+    if (!firebaseConfigured) return;
     (async () => {
-      setGoogleBusy(true);
       try {
         const app = getApps().length ? getApps()[0] : initializeApp(FB);
         const auth = getAuth(app);
         const result = await getRedirectResult(auth);
         if (result?.user) {
+          setGoogleBusy(true);
+          // Falls back to "Tourist" if the role picked before the redirect
+          // didn't survive the round trip — only matters for brand-new
+          // accounts anyway (see firebase_login.php's own "Tourist" default).
+          const role = sessionStorage.getItem(GOOGLE_ROLE_KEY) || "Tourist";
           const idToken = await result.user.getIdToken();
-          const data = await apiFirebaseLogin(idToken, pendingRole);
+          const data = await apiFirebaseLogin(idToken, role);
           sessionStorage.removeItem(GOOGLE_ROLE_KEY);
           login(data.user);
           navigate('/dashboard');
-          return;
         }
       } catch (err) {
+        sessionStorage.removeItem(GOOGLE_ROLE_KEY);
         setError(err.message || "Google sign-in failed");
+        setGoogleBusy(false);
       }
-      sessionStorage.removeItem(GOOGLE_ROLE_KEY);
-      setGoogleBusy(false);
     })();
-    // Gated on GOOGLE_ROLE_KEY in sessionStorage (cleared after it runs once),
-    // so re-running if `login`/`navigate` identity changes is harmless.
   }, [login, navigate]);
 
   // Google sign-in: popup on desktop (no page navigation, feels instant),
