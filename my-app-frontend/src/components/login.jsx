@@ -6,7 +6,7 @@ import { toast } from '../utils/toast';
 import { pwChecks, pwValid, pwStrength } from '../utils/password';
 import Icon from './Icon';
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 
 // Firebase web config (from .env). Google sign-in shows only when configured.
 const FB = {
@@ -16,6 +16,15 @@ const FB = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 const firebaseConfigured = !!(FB.apiKey && FB.projectId && !String(FB.apiKey).startsWith("PASTE"));
+
+// Popups are commonly blocked on mobile browsers (iOS Safari, mobile Chrome)
+// — redirect-based sign-in (a full-page trip to Google and back) is far more
+// reliable there. Desktop keeps the popup for a smoother, no-navigation flow.
+const isMobileBrowser = () => typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+// `role` (Tourist/Establishment) only matters for brand-new accounts and has
+// to survive the full-page redirect, so it's stashed here and read back by
+// the redirect-result effect below.
+const GOOGLE_ROLE_KEY = "tcims_pending_google_role";
 
 function Login() {
   const [username, setUsername] = useState('');
@@ -79,16 +88,53 @@ function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Google sign-in via popup (works on desktop and in-app browsers like Messenger).
-  // On mobile Chrome/Safari where popups/redirects are restricted, use the email + password
-  // login below (set a password once via the Account button). `role` applies to new accounts only.
+  // On page load, pick up a Google sign-in that was completed via full-page
+  // redirect (mobile — see handleGoogle below). Popup-based sign-in (desktop)
+  // resolves inline in handleGoogle and never touches this path; this only
+  // does anything when GOOGLE_ROLE_KEY was left behind by a redirect.
+  useEffect(() => {
+    const pendingRole = sessionStorage.getItem(GOOGLE_ROLE_KEY);
+    if (!pendingRole || !firebaseConfigured) return;
+    (async () => {
+      setGoogleBusy(true);
+      try {
+        const app = getApps().length ? getApps()[0] : initializeApp(FB);
+        const auth = getAuth(app);
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          const idToken = await result.user.getIdToken();
+          const data = await apiFirebaseLogin(idToken, pendingRole);
+          sessionStorage.removeItem(GOOGLE_ROLE_KEY);
+          login(data.user);
+          navigate('/dashboard');
+          return;
+        }
+      } catch (err) {
+        setError(err.message || "Google sign-in failed");
+      }
+      sessionStorage.removeItem(GOOGLE_ROLE_KEY);
+      setGoogleBusy(false);
+    })();
+    // Gated on GOOGLE_ROLE_KEY in sessionStorage (cleared after it runs once),
+    // so re-running if `login`/`navigate` identity changes is harmless.
+  }, [login, navigate]);
+
+  // Google sign-in: popup on desktop (no page navigation, feels instant),
+  // full-page redirect on mobile (popups are frequently blocked there).
+  // `role` applies to new accounts only.
   const handleGoogle = async (role) => {
     setRoleModal(false);
     setError(''); setGoogleBusy(true);
     try {
       const app = getApps().length ? getApps()[0] : initializeApp(FB);
       const auth = getAuth(app);
-      const result = await signInWithPopup(auth, new GoogleAuthProvider());
+      const provider = new GoogleAuthProvider();
+      if (isMobileBrowser()) {
+        sessionStorage.setItem(GOOGLE_ROLE_KEY, role);
+        await signInWithRedirect(auth, provider);
+        return; // page navigates away to Google; nothing more runs here
+      }
+      const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
       const data = await apiFirebaseLogin(idToken, role);
       login(data.user);
