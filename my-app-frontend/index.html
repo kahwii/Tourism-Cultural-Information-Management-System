@@ -33,6 +33,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
+    <!-- Google Identity Services — used by the login page's "Continue with
+         Google" button. Opens its own popup to accounts.google.com directly
+         and synchronously from the click, which mobile Safari allows; going
+         through Firebase's own signInWithPopup/signInWithRedirect helpers
+         does async setup before opening the popup, which made Safari treat
+         it as not user-initiated and silently block or drop it. -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
     <!-- Structured data: helps Google understand this is an official government tourism service -->
     <script type="application/ld+json">
     {

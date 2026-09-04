@@ -6,7 +6,7 @@ import { toast } from '../utils/toast';
 import { pwChecks, pwValid, pwStrength } from '../utils/password';
 import Icon from './Icon';
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 
 // Firebase web config (from .env). Google sign-in shows only when configured.
 const FB = {
@@ -17,14 +17,17 @@ const FB = {
 };
 const firebaseConfigured = !!(FB.apiKey && FB.projectId && !String(FB.apiKey).startsWith("PASTE"));
 
-// Popups are commonly blocked on mobile browsers (iOS Safari, mobile Chrome)
-// — redirect-based sign-in (a full-page trip to Google and back) is far more
-// reliable there. Desktop keeps the popup for a smoother, no-navigation flow.
-const isMobileBrowser = () => typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-// `role` (Tourist/Establishment) only matters for brand-new accounts and has
-// to survive the full-page redirect, so it's stashed here and read back by
-// the redirect-result effect below.
-const GOOGLE_ROLE_KEY = "tcims_pending_google_role";
+// Google Identity Services (script tag in index.html) — used instead of
+// Firebase's own signInWithPopup/signInWithRedirect. Firebase's popup helper
+// does async setup (persistence lookups, etc.) BEFORE calling window.open(),
+// which on mobile Safari is enough delay for the browser to stop treating it
+// as a direct result of the user's tap and silently block or drop it —
+// that's what was happening even though the click handler itself was
+// synchronous. Google's own library opens the popup to accounts.google.com
+// immediately/synchronously, which Safari allows, and it skips the
+// redirect-through-Firebase's-authDomain trip entirely.
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const googleClientConfigured = !!(GOOGLE_CLIENT_ID && !String(GOOGLE_CLIENT_ID).startsWith("PASTE"));
 
 function Login() {
   const [username, setUsername] = useState('');
@@ -88,75 +91,53 @@ function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // On page load, pick up a Google sign-in that was completed via full-page
-  // redirect (mobile — see handleGoogle below). Popup-based sign-in (desktop)
-  // resolves inline in handleGoogle and never touches this path.
-  //
-  // Deliberately NOT gated on GOOGLE_ROLE_KEY being present in sessionStorage:
-  // the redirect trip bounces through the Firebase authDomain (a different
-  // origin) and back, and sessionStorage is not guaranteed to survive that
-  // round trip on every mobile browser. getRedirectResult() itself is backed
-  // by Firebase's own IndexedDB-based pending-redirect state, which IS
-  // designed to survive the trip — so it's called unconditionally on every
-  // load, and simply resolves to null when there's nothing to pick up.
-  useEffect(() => {
-    if (!firebaseConfigured) return;
-    (async () => {
-      try {
-        const app = getApps().length ? getApps()[0] : initializeApp(FB);
-        const auth = getAuth(app);
-        const result = await getRedirectResult(auth);
-        if (result?.user) {
-          setGoogleBusy(true);
-          // Falls back to "Tourist" if the role picked before the redirect
-          // didn't survive the round trip — only matters for brand-new
-          // accounts anyway (see firebase_login.php's own "Tourist" default).
-          const role = sessionStorage.getItem(GOOGLE_ROLE_KEY) || "Tourist";
+  // Google sign-in via Google Identity Services (see index.html for the
+  // script tag). `google.accounts.oauth2.initTokenClient(...).requestAccessToken()`
+  // opens the popup to accounts.google.com synchronously, right inside the
+  // click handler that picks a role — same mechanism on desktop and mobile,
+  // no redirect trip, no Firebase authDomain hop. The access token it
+  // returns is exchanged for a Firebase credential so the rest of the app
+  // (getIdToken -> apiFirebaseLogin) works exactly as before.
+  const handleGoogle = (role) => {
+    setRoleModal(false);
+    setError('');
+    if (!window.google?.accounts?.oauth2) {
+      setError("Google sign-in isn't ready yet — please wait a moment and try again.");
+      return;
+    }
+    setGoogleBusy(true);
+    const tokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: "openid email profile",
+      callback: async (response) => {
+        if (response.error) {
+          setError(response.error_description || "Google sign-in failed");
+          setGoogleBusy(false);
+          return;
+        }
+        try {
+          const app = getApps().length ? getApps()[0] : initializeApp(FB);
+          const auth = getAuth(app);
+          const credential = GoogleAuthProvider.credential(null, response.access_token);
+          const result = await signInWithCredential(auth, credential);
           const idToken = await result.user.getIdToken();
           const data = await apiFirebaseLogin(idToken, role);
-          sessionStorage.removeItem(GOOGLE_ROLE_KEY);
           login(data.user);
           navigate('/dashboard');
+        } catch (err) {
+          setError(err.message || "Google sign-in failed");
+          setGoogleBusy(false);
         }
-      } catch (err) {
-        sessionStorage.removeItem(GOOGLE_ROLE_KEY);
-        setError(err.message || "Google sign-in failed");
+      },
+      error_callback: (err) => {
+        // user closed the popup, or it was blocked/cancelled
+        if (err?.type !== "popup_closed") {
+          setError(err?.message || "Google sign-in was cancelled or failed.");
+        }
         setGoogleBusy(false);
-      }
-    })();
-  }, [login, navigate]);
-
-  // Google sign-in: popup on desktop (no page navigation, feels instant),
-  // full-page redirect on mobile (popups are frequently blocked there).
-  // `role` applies to new accounts only.
-  const handleGoogle = async (role) => {
-    setRoleModal(false);
-    setError(''); setGoogleBusy(true);
-    try {
-      const app = getApps().length ? getApps()[0] : initializeApp(FB);
-      const auth = getAuth(app);
-      const provider = new GoogleAuthProvider();
-      if (isMobileBrowser()) {
-        sessionStorage.setItem(GOOGLE_ROLE_KEY, role);
-        await signInWithRedirect(auth, provider);
-        return; // page navigates away to Google; nothing more runs here
-      }
-      const result = await signInWithPopup(auth, provider);
-      const idToken = await result.user.getIdToken();
-      const data = await apiFirebaseLogin(idToken, role);
-      login(data.user);
-      navigate('/dashboard');
-    } catch (err) {
-      const code = err?.code || "";
-      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
-        // user closed the popup — no message
-      } else if (code === "auth/popup-blocked") {
-        setError("Pop-up blocked. Allow pop-ups, or log in with your email and password below.");
-      } else {
-        setError(err.message || "Google sign-in failed");
-      }
-      setGoogleBusy(false);
-    }
+      },
+    });
+    tokenClient.requestAccessToken();
   };
 
   const handleSubmit = async (e) => {
@@ -242,8 +223,8 @@ function Login() {
           </div>
           {error && <div style={errorBox}>{error}</div>}
 
-          {/* Google Sign-In via Firebase */}
-          {firebaseConfigured ? (
+          {/* Google Sign-In via Google Identity Services + Firebase credential exchange */}
+          {firebaseConfigured && googleClientConfigured ? (
             <button type="button" style={googleBtn} className="tc-google" onClick={() => setRoleModal(true)} disabled={googleBusy}>
               <svg width="18" height="18" viewBox="0 0 48 48" style={{ flexShrink: 0 }}>
                 <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.4 29.3 35 24 35c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 5.1 29.5 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21c10.5 0 20-7.6 20-21 0-1.2-.1-2.3-.4-3.5z"/>
