@@ -519,84 +519,102 @@ export default function Events() {
 
       {/* MODAL */}
       {modalOpen && (
-        <div style={overlay} className="tc-modal-backdrop" onClick={() => setModalOpen(false)}>
-          <div style={modal} className="tc-modal" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ margin: "0 0 18px", fontSize: 20, color: "#0F172A" }}>
-              {editingId ? "Edit Event" : "Add Event"}
-            </h2>
-
-            <label style={fieldLabel}>Event Name</label>
-            <input style={fieldInput} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-
-            <label style={fieldLabel}>Event Date</label>
-            <input type="date" style={fieldInput} value={form.event_date} onChange={(e) => setForm({ ...form, event_date: e.target.value })} />
-
-            <div style={{ display: "flex", gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <label style={fieldLabel}>Start Time</label>
-                <input type="time" style={fieldInput} value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
+        <div className="tc-modal-backdrop tc-form-overlay" onClick={() => setModalOpen(false)}>
+          <div className="tc-modal tc-form-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="tc-form-header">
+              <div className="tc-form-header-icon"><Icon name="calendar" size={20} /></div>
+              <div className="tc-form-header-text">
+                <h2 className="tc-form-title">{editingId ? "Edit Event" : "Add Event"}</h2>
+                <p className="tc-form-subtitle">{editingId ? "Update this event's details." : "Add a new event or activity."}</p>
               </div>
-              <div style={{ flex: 1 }}>
-                <label style={fieldLabel}>End Time (optional)</label>
-                <input type="time" style={fieldInput} value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
-              </div>
+              <button className="tc-form-close" onClick={() => setModalOpen(false)} aria-label="Close">✕</button>
             </div>
 
-            <label style={fieldLabel}>Category</label>
-            <select style={fieldInput} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-              {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <div className="tc-form-body">
+              <div className="tc-form-section">
+                <div className="tc-form-section-title">Event Details</div>
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Event Name</label>
+                  <input className="tc-form-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                </div>
+                <div className="tc-form-grid">
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">Event Date</label>
+                    <input type="date" className="tc-form-input" value={form.event_date} onChange={(e) => setForm({ ...form, event_date: e.target.value })} />
+                  </div>
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">Category</label>
+                    <select className="tc-form-select" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                      {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">Start Time</label>
+                    <input type="time" className="tc-form-input" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
+                  </div>
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">End Time <span className="opt">(optional)</span></label>
+                    <input type="time" className="tc-form-input" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
+                  </div>
+                </div>
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Venue</label>
+                  <input className="tc-form-input" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} />
+                </div>
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Description <span className="opt">(optional)</span></label>
+                  <textarea className="tc-form-textarea" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Short details about the event…" />
+                </div>
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Status</label>
+                  <select className="tc-form-select" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
 
-            <label style={fieldLabel}>Venue</label>
-            <input style={fieldInput} value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} />
-
-            <label style={fieldLabel}>Description (optional)</label>
-            <textarea style={{ ...fieldInput, minHeight: 70, resize: "vertical" }} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Short details about the event…" />
-
-            <label style={fieldLabel}>Status</label>
-            <select style={fieldInput} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-
-            <label style={fieldLabel}>Poster / Banner Image (optional)</label>
-            {form.image ? (
-              <div style={posterPreviewWrap}>
-                <img src={fileUrl(form.image)} alt="Event poster" style={posterPreviewImg} />
-                <div style={posterActions}>
-                  <label style={posterChangeBtn} className="tc-btn">
-                    Change
+              <div className="tc-form-section">
+                <div className="tc-form-section-title">Poster / Banner</div>
+                {form.image ? (
+                  <div className="tc-form-photo-wrap">
+                    <img src={fileUrl(form.image)} alt="Event poster" style={{ width: "100%", height: 150, objectFit: "cover", display: "block" }} />
+                    <div className="tc-form-photo-actions">
+                      <label className="tc-form-photo-btn">
+                        Change
+                        <input
+                          type="file" accept="image/*"
+                          style={{ display: "none" }} disabled={imageUploading}
+                          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
+                        />
+                      </label>
+                      <button type="button" className="tc-form-photo-btn" onClick={removeImage} disabled={imageUploading}>Remove</button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="tc-form-dropzone">
+                    <div className="tc-form-dropzone-icon"><Icon name="calendar" size={16} /></div>
+                    <span>{imageUploading ? "Uploading…" : "Click to upload an image"}</span>
                     <input
                       type="file" accept="image/*"
                       style={{ display: "none" }} disabled={imageUploading}
                       onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
                     />
                   </label>
-                  <button type="button" style={posterRemoveBtn} className="tc-btn" onClick={removeImage} disabled={imageUploading}>Remove</button>
-                </div>
+                )}
+                {cropFile && (
+                  <ImageCropper
+                    file={cropFile}
+                    aspect={POSTER_ASPECT}
+                    onCancel={() => setCropFile(null)}
+                    onApply={onCropApplied}
+                  />
+                )}
               </div>
-            ) : (
-              <label style={posterDropzone}>
-                <Icon name="calendar" size={20} style={{ color: "#9ca3af" }} />
-                <span>{imageUploading ? "Uploading…" : "Click to upload an image"}</span>
-                <input
-                  type="file" accept="image/*"
-                  style={{ display: "none" }} disabled={imageUploading}
-                  onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
-                />
-              </label>
-            )}
-            {cropFile && (
-              <ImageCropper
-                file={cropFile}
-                aspect={POSTER_ASPECT}
-                onCancel={() => setCropFile(null)}
-                onApply={onCropApplied}
-              />
-            )}
+            </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
-              <button style={cancelBtn} className="tc-btn" onClick={() => setModalOpen(false)} disabled={saving}>Cancel</button>
-              <button style={saveBtn} className="tc-btn tc-btn-primary" onClick={saveEvent} disabled={saving || imageUploading}>{saving ? "Saving…" : editingId ? "Save Changes" : "Add Event"}</button>
+            <div className="tc-form-footer">
+              <button className="tc-btn tc-form-cancel" onClick={() => setModalOpen(false)} disabled={saving}>Cancel</button>
+              <button className="tc-btn tc-btn-primary tc-form-save" onClick={saveEvent} disabled={saving || imageUploading}>{saving ? "Saving…" : editingId ? "Save Changes" : "Add Event"}</button>
             </div>
           </div>
         </div>
@@ -653,16 +671,3 @@ const calCardImg = { width: "100%", height: "110px", objectFit: "cover", borderR
 const rowThumb = { width: "40px", height: "40px", borderRadius: "8px", objectFit: "cover", flexShrink: 0, border: "1px solid #eef2f8" };
 const rowThumbPlaceholder = { width: "40px", height: "40px", borderRadius: "8px", flexShrink: 0, background: "#f7faff", border: "1px solid #eef2f8", display: "flex", alignItems: "center", justifyContent: "center" };
 
-const posterDropzone = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, height: "100px", borderRadius: "10px", border: "1.5px dashed #d1d5db", background: "#F7FAFF", color: "#6b7280", fontSize: "13px", cursor: "pointer", textAlign: "center" };
-const posterPreviewWrap = { position: "relative", borderRadius: "10px", overflow: "hidden", border: "1px solid #e6ecf5" };
-const posterPreviewImg = { width: "100%", height: "140px", objectFit: "cover", display: "block" };
-const posterActions = { position: "absolute", top: 8, right: 8, display: "flex", gap: 6 };
-const posterRemoveBtn = { background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer" };
-const posterChangeBtn = { background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer", display: "inline-flex", alignItems: "center" };
-
-const overlay = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 };
-const modal = { background: "#fff", borderRadius: "16px", padding: "26px", width: "460px", maxWidth: "90%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 50px rgba(0,0,0,0.25)" };
-const fieldLabel = { display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", margin: "12px 0 6px" };
-const fieldInput = { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1d5db", fontSize: "14px", boxSizing: "border-box" };
-const cancelBtn = { background: "#f1f5f9", border: "none", borderRadius: "8px", padding: "10px 18px", cursor: "pointer", fontSize: "14px", color: "#374151" };
-const saveBtn = { background: "#1D4ED8", color: "#fff", border: "none", borderRadius: "8px", padding: "10px 18px", cursor: "pointer", fontSize: "14px", fontWeight: 600 };

@@ -191,79 +191,106 @@ export default function TouristSpots() {
       </div>
 
       {modalOpen && (
-        <div style={overlay} className="tc-modal-backdrop" onClick={() => setModalOpen(false)}>
-          <div style={modal} className="tc-modal" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ margin: "0 0 18px", fontSize: 20, color: "#0F172A" }}>
-              {editingId ? "Edit Tourist Spot" : "Add Tourist Spot"}
-            </h2>
+        <div className="tc-modal-backdrop tc-form-overlay" onClick={() => setModalOpen(false)}>
+          <div className="tc-modal tc-form-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="tc-form-header">
+              <div className="tc-form-header-icon"><Icon name="pin" size={20} /></div>
+              <div className="tc-form-header-text">
+                <h2 className="tc-form-title">{editingId ? "Edit Tourist Spot" : "Add Tourist Spot"}</h2>
+                <p className="tc-form-subtitle">{editingId ? "Update this spot's details." : "Add a new destination to the directory."}</p>
+              </div>
+              <button className="tc-form-close" onClick={() => setModalOpen(false)} aria-label="Close">✕</button>
+            </div>
 
-            <label style={fieldLabel}>Name</label>
-            <input style={fieldInput} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <div className="tc-form-body">
+              <div className="tc-form-section">
+                <div className="tc-form-section-title">Basic Information</div>
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Name</label>
+                  <input className="tc-form-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                </div>
+                <div className="tc-form-grid">
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">Category</label>
+                    <select className="tc-form-select" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                      {CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">Status</label>
+                    <select className="tc-form-select" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                    <p className="tc-form-hint">Inactive spots are hidden from Explore.</p>
+                  </div>
+                </div>
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Address</label>
+                  <input className="tc-form-input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                </div>
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Coordinates <span className="opt">(optional)</span></label>
+                  <input className="tc-form-input" value={form.coordinates} onChange={(e) => setForm({ ...form, coordinates: e.target.value })} placeholder="14.5794, 121.0359" />
+                </div>
+              </div>
 
-            <label style={fieldLabel}>Category</label>
-            <select style={fieldInput} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-              {CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+              <div className="tc-form-section">
+                <div className="tc-form-section-title">Contact Information</div>
+                <p className="tc-form-section-hint">Optional, but shown to tourists — leave blank rather than guessing.</p>
+                <div className="tc-form-grid">
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">Contact Number</label>
+                    <input className="tc-form-input" value={form.contact_no} onChange={(e) => setForm({ ...form, contact_no: e.target.value })} placeholder="0917 123 4567" />
+                  </div>
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">Email Address</label>
+                    <input className="tc-form-input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="info@example.com" />
+                  </div>
+                </div>
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Website</label>
+                  <input className="tc-form-input" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} placeholder="example.com" />
+                </div>
+              </div>
 
-            <label style={fieldLabel}>Address</label>
-            <input style={fieldInput} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-
-            <div style={contactHead}>Contact Information</div>
-            <p style={contactHint}>Optional, but shown to tourists — leave blank rather than guessing.</p>
-
-            <label style={fieldLabel}>Contact Number</label>
-            <input style={fieldInput} value={form.contact_no} onChange={(e) => setForm({ ...form, contact_no: e.target.value })} placeholder="0917 123 4567 or (02) 8123 4567" />
-
-            <label style={fieldLabel}>Email Address</label>
-            <input style={fieldInput} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="info@example.com" />
-
-            <label style={fieldLabel}>Website</label>
-            <input style={fieldInput} value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} placeholder="example.com" />
-
-            <label style={fieldLabel}>Status</label>
-            <select style={fieldInput} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-            <p style={contactHint}>Inactive spots are hidden from the tourist Explore page.</p>
-
-            <label style={fieldLabel}>Coordinates (optional)</label>
-            <input style={fieldInput} value={form.coordinates} onChange={(e) => setForm({ ...form, coordinates: e.target.value })} placeholder="14.5794, 121.0359" />
-
-            <label style={fieldLabel}>Photo (optional)</label>
-            {form.image ? (
-              <div style={spotPhotoPreviewWrap}>
-                <img src={fileUrl(form.image)} alt="" style={spotPhotoPreviewImg} />
-                <div style={spotPhotoActions}>
-                  <label style={spotPhotoBtn} className="tc-btn">
-                    Change
+              <div className="tc-form-section">
+                <div className="tc-form-section-title">Photo</div>
+                {form.image ? (
+                  <div className="tc-form-photo-wrap">
+                    <img src={fileUrl(form.image)} alt="" style={{ width: "100%", height: 150, objectFit: "cover", display: "block" }} />
+                    <div className="tc-form-photo-actions">
+                      <label className="tc-form-photo-btn">
+                        Change
+                        <input
+                          type="file" accept="image/*"
+                          style={{ display: "none" }} disabled={imageUploading}
+                          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
+                        />
+                      </label>
+                      <button type="button" className="tc-form-photo-btn" onClick={removeImage} disabled={imageUploading}>Remove</button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="tc-form-dropzone">
+                    <div className="tc-form-dropzone-icon"><Icon name="pin" size={16} /></div>
+                    <span>{imageUploading ? "Uploading…" : "Click to upload a photo"}</span>
                     <input
                       type="file" accept="image/*"
                       style={{ display: "none" }} disabled={imageUploading}
                       onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
                     />
                   </label>
-                  <button type="button" style={spotPhotoRemoveBtn} className="tc-btn" onClick={removeImage} disabled={imageUploading}>Remove</button>
-                </div>
+                )}
+                {cropFile && (
+                  <ImageCropper file={cropFile} aspect={SPOT_ASPECT} onCancel={() => setCropFile(null)} onApply={onCropApplied} />
+                )}
               </div>
-            ) : (
-              <label style={spotPhotoDropzone}>
-                <Icon name="pin" size={20} style={{ color: "#9ca3af" }} />
-                <span>{imageUploading ? "Uploading…" : "Click to upload a photo"}</span>
-                <input
-                  type="file" accept="image/*"
-                  style={{ display: "none" }} disabled={imageUploading}
-                  onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
-                />
-              </label>
-            )}
-            {cropFile && (
-              <ImageCropper file={cropFile} aspect={SPOT_ASPECT} onCancel={() => setCropFile(null)} onApply={onCropApplied} />
-            )}
+            </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
-              <button style={cancelBtn} className="tc-btn" onClick={() => setModalOpen(false)}>Cancel</button>
-              <button style={saveBtn} className="tc-btn tc-btn-primary" onClick={save} disabled={saving || imageUploading}>
+            <div className="tc-form-footer">
+              <button className="tc-btn tc-form-cancel" onClick={() => setModalOpen(false)}>Cancel</button>
+              <button className="tc-btn tc-btn-primary tc-form-save" onClick={save} disabled={saving || imageUploading}>
                 {saving ? "Saving…" : (editingId ? "Save Changes" : "Add Spot")}
               </button>
             </div>
@@ -290,8 +317,6 @@ function exportCSV(rows) {
 
 /* ================= STYLES ================= */
 const contactLink = { color: "#2563eb", textDecoration: "none", fontSize: 13, overflowWrap: "anywhere" };
-const contactHead = { margin: "20px 0 2px", fontSize: 13.5, fontWeight: 700, color: "#1D4ED8", borderBottom: "2px solid #DBE7FF", paddingBottom: 5 };
-const contactHint = { margin: "6px 0 0", fontSize: 12, color: "#9ca3af" };
 const breadcrumb = { display: "flex", alignItems: "center", gap: "8px", color: "#6b7280", fontSize: "14px", marginBottom: "16px" };
 const headerRow = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" };
 const headerIcon = { width: "52px", height: "52px", borderRadius: "12px", background: "#1D4ED8", color: "#fff", fontSize: "24px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
@@ -316,20 +341,5 @@ const iconAction = { background: "none", border: "none", cursor: "pointer", font
 const editBtn = { background: "#EFF5FF", color: "#1D4ED8", border: "1px solid #bfdbfe", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", margin: "0 3px" };
 const delBtn = { background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", margin: "0 3px" };
 
-const overlay = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 };
-// maxHeight + scroll: the form grew with the contact section and would
-// otherwise run past the bottom of the viewport on smaller screens.
-const modal = { background: "#fff", borderRadius: "16px", padding: "26px", width: "440px", maxWidth: "90%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 50px rgba(0,0,0,0.25)" };
-const fieldLabel = { display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", margin: "12px 0 6px" };
-const fieldInput = { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1d5db", fontSize: "14px", boxSizing: "border-box" };
-const cancelBtn = { background: "#f1f5f9", border: "none", borderRadius: "8px", padding: "10px 18px", cursor: "pointer", fontSize: "14px", color: "#374151" };
-const saveBtn = { background: "#1D4ED8", color: "#fff", border: "none", borderRadius: "8px", padding: "10px 18px", cursor: "pointer", fontSize: "14px", fontWeight: 600 };
-
 const rowThumb = { width: "40px", height: "40px", borderRadius: "8px", objectFit: "cover", flexShrink: 0, border: "1px solid #eef2f8" };
 const rowThumbPlaceholder = { width: "40px", height: "40px", borderRadius: "8px", flexShrink: 0, background: "#f7faff", border: "1px solid #eef2f8", display: "flex", alignItems: "center", justifyContent: "center" };
-const spotPhotoDropzone = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, height: "100px", borderRadius: "10px", border: "1.5px dashed #d1d5db", background: "#F7FAFF", color: "#6b7280", fontSize: "13px", cursor: "pointer", textAlign: "center" };
-const spotPhotoPreviewWrap = { position: "relative", borderRadius: "10px", overflow: "hidden", border: "1px solid #e6ecf5" };
-const spotPhotoPreviewImg = { width: "100%", height: "140px", objectFit: "cover", display: "block" };
-const spotPhotoActions = { position: "absolute", top: 8, right: 8, display: "flex", gap: 6 };
-const spotPhotoBtn = { background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer", display: "inline-flex", alignItems: "center" };
-const spotPhotoRemoveBtn = { background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer" };

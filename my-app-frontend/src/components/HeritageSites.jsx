@@ -291,77 +291,107 @@ export default function HeritageSites() {
 
       {/* ADD / EDIT MODAL */}
       {modalOpen && (
-        <div style={overlay} className="tc-modal-backdrop" onClick={() => setModalOpen(false)}>
-          <div style={modal} className="tc-modal" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ margin: "0 0 18px", fontSize: 20, color: "#0F172A" }}>
-              {editingId ? "Edit Heritage Site" : "Add Heritage Site"}
-            </h2>
+        <div className="tc-modal-backdrop tc-form-overlay" onClick={() => setModalOpen(false)}>
+          <div className="tc-modal tc-form-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="tc-form-header">
+              <div className="tc-form-header-icon"><Icon name="landmark" size={20} /></div>
+              <div className="tc-form-header-text">
+                <h2 className="tc-form-title">{editingId ? "Edit Heritage Site" : "Add Heritage Site"}</h2>
+                <p className="tc-form-subtitle">{editingId ? "Update this site's details." : "Add a new site to the heritage directory."}</p>
+              </div>
+              <button className="tc-form-close" onClick={() => setModalOpen(false)} aria-label="Close">✕</button>
+            </div>
 
-            <label style={fieldLabel}>Name</label>
-            <input style={fieldInput} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <div className="tc-form-body">
+              <div className="tc-form-section">
+                <div className="tc-form-section-title">Basic Information</div>
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Name</label>
+                  <input className="tc-form-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                </div>
+                <div className="tc-form-grid">
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">Category</label>
+                    <select className="tc-form-select" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                      {HERITAGE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">Established <span className="opt">(year)</span></label>
+                    <input className="tc-form-input" value={form.est} onChange={(e) => setForm({ ...form, est: e.target.value })} placeholder="e.g. 1863" />
+                  </div>
+                </div>
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Tagline <span className="opt">(optional)</span></label>
+                  <input className="tc-form-input" value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} placeholder="e.g. Established 1863 · Oldest in the city" />
+                </div>
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Location</label>
+                  <input className="tc-form-input" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+                </div>
+              </div>
 
-            <label style={fieldLabel}>Category</label>
-            <select style={fieldInput} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-              {HERITAGE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-
-            <label style={fieldLabel}>Tagline (optional)</label>
-            <input style={fieldInput} value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} placeholder="e.g. Established 1863 · Oldest in the city" />
-
-            <label style={fieldLabel}>Established (year)</label>
-            <input style={fieldInput} value={form.est} onChange={(e) => setForm({ ...form, est: e.target.value })} placeholder="e.g. 1863" />
-
-            <label style={fieldLabel}>Location</label>
-            <input style={fieldInput} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
-
-            <label style={fieldLabel}>Photo (optional)</label>
-            {form.image ? (
-              <div style={sitePhotoPreviewWrap}>
-                <div style={{ ...sitePhotoPreviewImg, backgroundImage: "url(" + fileUrl(form.image) + ")" }} />
-                <div style={sitePhotoActions}>
-                  <label style={sitePhotoBtn} className="tc-btn">
-                    Change
+              <div className="tc-form-section">
+                <div className="tc-form-section-title">Photo</div>
+                {form.image ? (
+                  <div className="tc-form-photo-wrap">
+                    <div style={{ backgroundImage: "url(" + fileUrl(form.image) + ")", backgroundSize: "cover", backgroundPosition: "center", height: 150 }} />
+                    <div className="tc-form-photo-actions">
+                      <label className="tc-form-photo-btn">
+                        Change
+                        <input
+                          type="file" accept="image/*"
+                          style={{ display: "none" }} disabled={imageUploading}
+                          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
+                        />
+                      </label>
+                      <button type="button" className="tc-form-photo-btn" onClick={removeImage} disabled={imageUploading}>Remove</button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="tc-form-dropzone">
+                    <div className="tc-form-dropzone-icon"><Icon name="landmark" size={16} /></div>
+                    <span>{imageUploading ? "Uploading…" : "Click to upload a photo"}</span>
                     <input
                       type="file" accept="image/*"
                       style={{ display: "none" }} disabled={imageUploading}
                       onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
                     />
                   </label>
-                  <button type="button" style={sitePhotoRemoveBtn} className="tc-btn" onClick={removeImage} disabled={imageUploading}>Remove</button>
+                )}
+                {cropFile && (
+                  <ImageCropper file={cropFile} aspect={SITE_ASPECT} onCancel={() => setCropFile(null)} onApply={onCropApplied} />
+                )}
+              </div>
+
+              <div className="tc-form-section">
+                <div className="tc-form-section-title">Details</div>
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Historical Background</label>
+                  <textarea className="tc-form-textarea" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                </div>
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Cultural Significance</label>
+                  <textarea className="tc-form-textarea" style={{ minHeight: 60 }} value={form.significance} onChange={(e) => setForm({ ...form, significance: e.target.value })} />
+                </div>
+                <div className="tc-form-grid">
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">Status</label>
+                    <select className="tc-form-select" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                      {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">Coordinates</label>
+                    <input className="tc-form-input" value={form.coordinates} onChange={(e) => setForm({ ...form, coordinates: e.target.value })} placeholder="14.5794, 121.0359" />
+                  </div>
                 </div>
               </div>
-            ) : (
-              <label style={sitePhotoDropzone}>
-                <Icon name="landmark" size={20} style={{ color: "#9ca3af" }} />
-                <span>{imageUploading ? "Uploading…" : "Click to upload a photo"}</span>
-                <input
-                  type="file" accept="image/*"
-                  style={{ display: "none" }} disabled={imageUploading}
-                  onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; onImageChosen(f); }}
-                />
-              </label>
-            )}
-            {cropFile && (
-              <ImageCropper file={cropFile} aspect={SITE_ASPECT} onCancel={() => setCropFile(null)} onApply={onCropApplied} />
-            )}
+            </div>
 
-            <label style={fieldLabel}>Historical Background</label>
-            <textarea style={{ ...fieldInput, minHeight: 70, resize: "vertical" }} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-
-            <label style={fieldLabel}>Cultural Significance</label>
-            <textarea style={{ ...fieldInput, minHeight: 60, resize: "vertical" }} value={form.significance} onChange={(e) => setForm({ ...form, significance: e.target.value })} />
-
-            <label style={fieldLabel}>Status</label>
-            <select style={fieldInput} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-
-            <label style={fieldLabel}>Coordinates</label>
-            <input style={fieldInput} value={form.coordinates} onChange={(e) => setForm({ ...form, coordinates: e.target.value })} placeholder="14.5794, 121.0359" />
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
-              <button style={cancelBtn} className="tc-btn" onClick={() => setModalOpen(false)} disabled={saving}>Cancel</button>
-              <button style={saveBtn} className="tc-btn tc-btn-primary" onClick={saveSite} disabled={saving || imageUploading}>{saving ? "Saving…" : editingId ? "Save Changes" : "Add Site"}</button>
+            <div className="tc-form-footer">
+              <button className="tc-btn tc-form-cancel" onClick={() => setModalOpen(false)} disabled={saving}>Cancel</button>
+              <button className="tc-btn tc-btn-primary tc-form-save" onClick={saveSite} disabled={saving || imageUploading}>{saving ? "Saving…" : editingId ? "Save Changes" : "Add Site"}</button>
             </div>
           </div>
         </div>
@@ -420,15 +450,3 @@ const factsBox = { background: "#F7FAFF", border: "1px solid #eef2f8", borderRad
 const arBtn = { width: "100%", background: "#EFF5FF", color: "#1D4ED8", border: "1px solid #bfdbfe", borderRadius: "10px", padding: "12px", fontSize: "14px", fontWeight: 600, cursor: "pointer", marginBottom: 8 };
 const editFromDetailBtn = { width: "100%", background: "#f1f5f9", color: "#374151", border: "none", borderRadius: "10px", padding: "10px", fontSize: "14px", cursor: "pointer" };
 
-const modal = { background: "#fff", borderRadius: "16px", padding: "26px", width: "480px", maxWidth: "100%", maxHeight: "92vh", overflowY: "auto", boxShadow: "0 20px 50px rgba(0,0,0,0.25)" };
-const fieldLabel = { display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", margin: "12px 0 6px" };
-const fieldInput = { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1d5db", fontSize: "14px", boxSizing: "border-box", fontFamily: "inherit" };
-const cancelBtn = { background: "#f1f5f9", border: "none", borderRadius: "8px", padding: "10px 18px", cursor: "pointer", fontSize: "14px", color: "#374151" };
-const saveBtn = { background: "#1D4ED8", color: "#fff", border: "none", borderRadius: "8px", padding: "10px 18px", cursor: "pointer", fontSize: "14px", fontWeight: 600 };
-
-const sitePhotoDropzone = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, height: "100px", borderRadius: "10px", border: "1.5px dashed #d1d5db", background: "#F7FAFF", color: "#6b7280", fontSize: "13px", cursor: "pointer", textAlign: "center" };
-const sitePhotoPreviewWrap = { position: "relative", borderRadius: "10px", overflow: "hidden", border: "1px solid #e6ecf5" };
-const sitePhotoPreviewImg = { width: "100%", height: "140px", backgroundSize: "cover", backgroundPosition: "center", display: "block" };
-const sitePhotoActions = { position: "absolute", top: 8, right: 8, display: "flex", gap: 6 };
-const sitePhotoBtn = { background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer", display: "inline-flex", alignItems: "center" };
-const sitePhotoRemoveBtn = { background: "rgba(15,23,42,0.72)", color: "#fff", border: "none", borderRadius: "6px", padding: "5px 10px", fontSize: "12px", cursor: "pointer" };

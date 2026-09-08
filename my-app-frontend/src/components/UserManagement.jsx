@@ -229,47 +229,59 @@ export default function UserManagement() {
       </div>
 
       {modalOpen && (
-        <div style={overlay} className="tc-modal-backdrop" onClick={() => setModalOpen(false)}>
-          <div style={modal} className="tc-modal" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ margin: "0 0 18px", fontSize: 20, color: "#0F172A" }}>
-              {editingId ? "Edit User" : "Add User"}
-            </h2>
+        <div className="tc-modal-backdrop tc-form-overlay" onClick={() => setModalOpen(false)}>
+          <div className="tc-modal tc-form-modal tc-form-modal-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="tc-form-header">
+              <div className="tc-form-header-icon"><Icon name="users" size={20} /></div>
+              <div className="tc-form-header-text">
+                <h2 className="tc-form-title">{editingId ? "Edit User" : "Add User"}</h2>
+                <p className="tc-form-subtitle">{editingId ? "Update this account's details." : "Create a new system account."}</p>
+              </div>
+              <button className="tc-form-close" onClick={() => setModalOpen(false)} aria-label="Close">✕</button>
+            </div>
 
-            <label style={fieldLabel}>Username (used for login)</label>
-            <input style={fieldInput} value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
+            <div className="tc-form-body">
+              <div className="tc-form-section">
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Username <span className="opt">(used for login)</span></label>
+                  <input className="tc-form-input" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
+                </div>
+                <div className="tc-form-field">
+                  <label className="tc-form-label">Email</label>
+                  <input className="tc-form-input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                </div>
+                <div className="tc-form-grid">
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">Role</label>
+                    <select className="tc-form-select" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">Status</label>
+                    <select className="tc-form-select" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+                </div>
 
-            <label style={fieldLabel}>Email</label>
-            <input style={fieldInput} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                {!editingId && (
+                  <div className="tc-form-field">
+                    <label className="tc-form-label">Temporary Password</label>
+                    <input className="tc-form-input" type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min 6 characters — give this to the staff" />
+                    <p className="tc-form-hint">The new account signs in with this username + temporary password.</p>
+                  </div>
+                )}
+                {editingId && (
+                  <p className="tc-form-hint">Password changes are not done here (use a reset flow).</p>
+                )}
+              </div>
+            </div>
 
-            <label style={fieldLabel}>Role</label>
-            <select style={fieldInput} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-
-            <label style={fieldLabel}>Status</label>
-            <select style={fieldInput} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-
-            {!editingId && (
-              <>
-                <label style={fieldLabel}>Temporary Password</label>
-                <input style={fieldInput} type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min 6 characters — give this to the staff" />
-                <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 8 }}>
-                  The new account signs in with this username + temporary password.
-                </p>
-              </>
-            )}
-            {editingId && (
-              <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 12 }}>
-                Password changes are not done here (use a reset flow).
-              </p>
-            )}
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
-              <button style={cancelBtn} className="tc-btn" onClick={() => setModalOpen(false)} disabled={saving}>Cancel</button>
-              <button style={saveBtn} className="tc-btn tc-btn-primary" onClick={save} disabled={saving}>{saving ? "Saving…" : editingId ? "Save Changes" : "Add User"}</button>
+            <div className="tc-form-footer">
+              <button className="tc-btn tc-form-cancel" onClick={() => setModalOpen(false)} disabled={saving}>Cancel</button>
+              <button className="tc-btn tc-btn-primary tc-form-save" onClick={save} disabled={saving}>{saving ? "Saving…" : editingId ? "Save Changes" : "Add User"}</button>
             </div>
           </div>
         </div>
@@ -277,30 +289,42 @@ export default function UserManagement() {
 
       {/* RESET PASSWORD (admin-assisted) */}
       {resetUser && (
-        <div style={overlay} className="tc-modal-backdrop" onClick={() => setResetUser(null)}>
-          <div style={modal} className="tc-modal" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ margin: "0 0 6px", fontSize: 20, color: "#0F172A" }}>Reset Password</h2>
-            <p style={{ margin: "0 0 14px", fontSize: 13, color: "#6b7280" }}>
-              Set a new password for <b>{resetUser.username}</b>. This also unlocks the account if it was locked.
-            </p>
-            <label style={fieldLabel}>New password</label>
-            <input style={fieldInput} type="password" value={resetPw} onChange={(e) => setResetPw(e.target.value)} placeholder="Create a strong password" />
-            {resetPw && (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ height: 6, background: "#e5e7eb", borderRadius: 999, overflow: "hidden", marginBottom: 8 }}>
-                  <div style={{ height: "100%", width: pwStrength(resetPw).pct + "%", background: pwStrength(resetPw).color, transition: "width .2s ease" }} />
-                </div>
-                {pwStrength(resetPw).label && <div style={{ fontSize: 12, fontWeight: 700, color: pwStrength(resetPw).color, marginBottom: 8 }}>{pwStrength(resetPw).label} password</div>}
-                {pwChecks(resetPw).map((c) => (
-                  <div key={c.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: c.ok ? "#16a34a" : "#9ca3af", marginBottom: 4 }}>
-                    <span style={{ width: 14, textAlign: "center", fontWeight: 700 }}>{c.ok ? "✓" : "•"}</span>{c.label}
-                  </div>
-                ))}
+        <div className="tc-modal-backdrop tc-form-overlay" onClick={() => setResetUser(null)}>
+          <div className="tc-modal tc-form-modal tc-form-modal-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="tc-form-header">
+              <div className="tc-form-header-icon"><Icon name="users" size={20} /></div>
+              <div className="tc-form-header-text">
+                <h2 className="tc-form-title">Reset Password</h2>
+                <p className="tc-form-subtitle">Set a new password for <b>{resetUser.username}</b>. This also unlocks the account if it was locked.</p>
               </div>
-            )}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
-              <button style={cancelBtn} className="tc-btn" onClick={() => setResetUser(null)} disabled={resetting}>Cancel</button>
-              <button style={saveBtn} className="tc-btn tc-btn-primary" onClick={doReset} disabled={resetting}>{resetting ? "Resetting…" : "Reset Password"}</button>
+              <button className="tc-form-close" onClick={() => setResetUser(null)} aria-label="Close">✕</button>
+            </div>
+
+            <div className="tc-form-body">
+              <div className="tc-form-section">
+                <div className="tc-form-field">
+                  <label className="tc-form-label">New Password</label>
+                  <input className="tc-form-input" type="password" value={resetPw} onChange={(e) => setResetPw(e.target.value)} placeholder="Create a strong password" />
+                </div>
+                {resetPw && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ height: 6, background: "#e5e7eb", borderRadius: 999, overflow: "hidden", marginBottom: 8 }}>
+                      <div style={{ height: "100%", width: pwStrength(resetPw).pct + "%", background: pwStrength(resetPw).color, transition: "width .2s ease" }} />
+                    </div>
+                    {pwStrength(resetPw).label && <div style={{ fontSize: 12, fontWeight: 700, color: pwStrength(resetPw).color, marginBottom: 8 }}>{pwStrength(resetPw).label} password</div>}
+                    {pwChecks(resetPw).map((c) => (
+                      <div key={c.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: c.ok ? "#16a34a" : "#9ca3af", marginBottom: 4 }}>
+                        <span style={{ width: 14, textAlign: "center", fontWeight: 700 }}>{c.ok ? "✓" : "•"}</span>{c.label}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="tc-form-footer">
+              <button className="tc-btn tc-form-cancel" onClick={() => setResetUser(null)} disabled={resetting}>Cancel</button>
+              <button className="tc-btn tc-btn-primary tc-form-save" onClick={doReset} disabled={resetting}>{resetting ? "Resetting…" : "Reset Password"}</button>
             </div>
           </div>
         </div>
@@ -342,9 +366,3 @@ const resetBtn = { background: "#fffbeb", color: "#b45309", border: "1px solid #
 const delBtn = { background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", margin: "0 3px" };
 const youTag = { marginLeft: 8, fontSize: 10, fontWeight: 700, color: "#1D4ED8", background: "#dbeafe", padding: "2px 6px", borderRadius: 6, textTransform: "uppercase" };
 
-const overlay = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 };
-const modal = { background: "#fff", borderRadius: "16px", padding: "26px", width: "440px", maxWidth: "90%", maxHeight: "92vh", overflowY: "auto", boxShadow: "0 20px 50px rgba(0,0,0,0.25)" };
-const fieldLabel = { display: "block", fontSize: "13px", fontWeight: 600, color: "#374151", margin: "12px 0 6px" };
-const fieldInput = { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1d5db", fontSize: "14px", boxSizing: "border-box" };
-const cancelBtn = { background: "#f1f5f9", border: "none", borderRadius: "8px", padding: "10px 18px", cursor: "pointer", fontSize: "14px", color: "#374151" };
-const saveBtn = { background: "#1D4ED8", color: "#fff", border: "none", borderRadius: "8px", padding: "10px 18px", cursor: "pointer", fontSize: "14px", fontWeight: 600 };
