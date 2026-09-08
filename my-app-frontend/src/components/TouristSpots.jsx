@@ -178,8 +178,10 @@ export default function TouristSpots() {
                   <span style={s.status === "Active" ? badgeActive : badgeInactive}>{s.status}</span>
                 </td>
                 <td style={{ ...tdStyle, textAlign: "center" }}>
-                  <button style={editBtn} className="tc-btn" title="Edit" onClick={() => openEdit(s)}>Edit</button>
-                  <button style={delBtn} className="tc-btn" title="Delete" onClick={() => remove(s.id)}>Delete</button>
+                  <div className="tc-row-actions">
+                    <button className="tc-row-btn tc-row-btn-edit" title="Edit" onClick={() => openEdit(s)}><Icon name="edit" size={16} /></button>
+                    <button className="tc-row-btn tc-row-btn-danger" title="Delete" onClick={() => remove(s.id)}><Icon name="trash" size={16} /></button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -337,9 +339,6 @@ const thStyle = { padding: "12px 14px", textAlign: "left", fontSize: "12px", let
 const tdStyle = { padding: "16px 14px", borderBottom: "1px solid #f1f5f9", fontSize: "14px", color: "#374151" };
 const badgeActive = { background: "#dcfce7", color: "#16a34a", padding: "4px 12px", borderRadius: "999px", fontSize: "12px", fontWeight: 600 };
 const badgeInactive = { background: "#fee2e2", color: "#dc2626", padding: "4px 12px", borderRadius: "999px", fontSize: "12px", fontWeight: 600 };
-const iconAction = { background: "none", border: "none", cursor: "pointer", fontSize: "16px", margin: "0 4px" };
-const editBtn = { background: "#EFF5FF", color: "#1D4ED8", border: "1px solid #bfdbfe", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", margin: "0 3px" };
-const delBtn = { background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", margin: "0 3px" };
 
 const rowThumb = { width: "40px", height: "40px", borderRadius: "8px", objectFit: "cover", flexShrink: 0, border: "1px solid #eef2f8" };
 const rowThumbPlaceholder = { width: "40px", height: "40px", borderRadius: "8px", flexShrink: 0, background: "#f7faff", border: "1px solid #eef2f8", display: "flex", alignItems: "center", justifyContent: "center" };

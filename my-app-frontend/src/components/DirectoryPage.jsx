@@ -234,8 +234,10 @@ export default function DirectoryPage({
                     <span style={r.status === "Active" ? badgeActive : badgeInactive}>{r.status}</span>
                   </td>
                   <td style={{ ...tdStyle, textAlign: "center" }}>
-                    <button style={editBtn} title="Edit" onClick={() => openEdit(r)}>Edit</button>
-                    <button style={delBtn} title="Delete" onClick={() => remove(r.id)}>Delete</button>
+                    <div className="tc-row-actions">
+                      <button className="tc-row-btn tc-row-btn-edit" title="Edit" onClick={() => openEdit(r)}><Icon name="edit" size={16} /></button>
+                      <button className="tc-row-btn tc-row-btn-danger" title="Delete" onClick={() => remove(r.id)}><Icon name="trash" size={16} /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -382,9 +384,6 @@ const tdStyle = { padding: "16px 14px", borderBottom: "1px solid #f1f5f9", fontS
 
 const badgeActive = { background: "#dcfce7", color: "#16a34a", padding: "4px 12px", borderRadius: "999px", fontSize: "12px", fontWeight: 600 };
 const badgeInactive = { background: "#fee2e2", color: "#dc2626", padding: "4px 12px", borderRadius: "999px", fontSize: "12px", fontWeight: 600 };
-const iconAction = { background: "none", border: "none", cursor: "pointer", fontSize: "16px", margin: "0 4px" };
-const editBtn = { background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", margin: "0 3px" };
-const delBtn = { background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", margin: "0 3px" };
 
 const contactLink = { color: "#2563eb", textDecoration: "none", fontSize: 13, overflowWrap: "anywhere" };
 

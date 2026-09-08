@@ -370,6 +370,31 @@ body { background: var(--canvas); }
   box-shadow: var(--sh-blue);
 }
 
+/* =====================================================================
+   ROW ACTIONS — compact icon-button group for table ACTIONS columns
+   Replaces a row of stacked colored pill/text buttons (Edit / Reset PW /
+   Deactivate / Delete, one per row, in every list) with quiet icon
+   buttons that only take on color when hovered — much calmer over a
+   table of many rows, and consistent across every admin CRUD page.
+   ===================================================================== */
+.tc-row-actions { display: inline-flex; align-items: center; gap: 2px; }
+.tc-row-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid transparent; background: transparent;
+  color: var(--ink-400); cursor: pointer; flex-shrink: 0;
+  transition: background-color .15s var(--ease), color .15s var(--ease);
+}
+.tc-row-btn:hover { background: var(--canvas); color: var(--ink-700); }
+.tc-row-btn:disabled { opacity: .35; cursor: not-allowed; }
+.tc-row-btn:disabled:hover { background: transparent; color: var(--ink-400); }
+
+.tc-row-btn-edit:hover { background: var(--mnd-50); color: var(--mnd-600) !important; }
+.tc-row-btn-reset:hover { background: var(--warn-50); color: var(--warn-600) !important; }
+.tc-row-btn-approve:hover { background: var(--ok-50); color: var(--ok-600) !important; }
+.tc-row-btn-warn:hover { background: var(--warn-50); color: var(--warn-600) !important; }
+.tc-row-btn-danger:hover { background: var(--bad-50); color: var(--bad-600) !important; }
+
 /* ---------- Badges ---------- */
 .tc-badge { transition: transform .16s var(--ease-out), box-shadow .16s var(--ease); }
 .tc-badge:hover { transform: translateY(-1px); box-shadow: var(--sh-sm); }

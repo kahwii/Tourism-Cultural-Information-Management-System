@@ -207,14 +207,18 @@ export default function UserManagement() {
                 </td>
                 <td style={tdStyle}>{fmtDate(u.last_login)}</td>
                 <td style={{ ...tdStyle, textAlign: "center", whiteSpace: "nowrap" }}>
-                  <button style={editBtn} className="tc-btn" title="Edit" onClick={() => openEdit(u)}>Edit</button>
-                  <button style={resetBtn} className="tc-btn" title="Reset password" onClick={() => { setResetUser(u); setResetPw(""); }}>Reset PW</button>
-                  <button style={u.status === "Active" ? delBtn : editBtn} onClick={() => toggleStatus(u)}>
-                    {u.status === "Active" ? "Deactivate" : "Activate"}
-                  </button>
-                  {String(u.id) !== String(me?.id) && (
-                    <button style={delBtn} className="tc-btn" title="Delete" onClick={() => remove(u)}>Delete</button>
-                  )}
+                  <div className="tc-row-actions">
+                    <button className="tc-row-btn tc-row-btn-edit" title="Edit" onClick={() => openEdit(u)}><Icon name="edit" size={16} /></button>
+                    <button className="tc-row-btn tc-row-btn-reset" title="Reset password" onClick={() => { setResetUser(u); setResetPw(""); }}><Icon name="key" size={16} /></button>
+                    <button
+                      className={`tc-row-btn ${u.status === "Active" ? "tc-row-btn-warn" : "tc-row-btn-approve"}`}
+                      title={u.status === "Active" ? "Deactivate" : "Activate"}
+                      onClick={() => toggleStatus(u)}
+                    ><Icon name="power" size={16} /></button>
+                    {String(u.id) !== String(me?.id) && (
+                      <button className="tc-row-btn tc-row-btn-danger" title="Delete" onClick={() => remove(u)}><Icon name="trash" size={16} /></button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -360,9 +364,5 @@ const tdStyle = { padding: "14px", borderBottom: "1px solid #f1f5f9", fontSize: 
 const badgeBase = { padding: "4px 12px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, display: "inline-block" };
 const badgeActive = { ...badgeBase, background: "#dcfce7", color: "#16a34a" };
 const badgeInactive = { ...badgeBase, background: "#fee2e2", color: "#dc2626" };
-const iconAction = { background: "none", border: "none", cursor: "pointer", fontSize: "15px", margin: "0 3px" };
-const editBtn = { background: "#EFF5FF", color: "#1D4ED8", border: "1px solid #bfdbfe", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", margin: "0 3px" };
-const resetBtn = { background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", margin: "0 3px" };
-const delBtn = { background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", margin: "0 3px" };
 const youTag = { marginLeft: 8, fontSize: 10, fontWeight: 700, color: "#1D4ED8", background: "#dbeafe", padding: "2px 6px", borderRadius: 6, textTransform: "uppercase" };
 

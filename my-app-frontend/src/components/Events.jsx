@@ -473,14 +473,16 @@ export default function Events() {
                     )}
                   </td>
                   <td style={{ ...tdStyle, textAlign: "center", whiteSpace: "nowrap" }}>
-                    {isApprover && ev.approvalStatus !== "Approved" && (
-                      <button style={approveBtn} className="tc-btn" title="Approve and publish" onClick={() => decide(ev, "Approved")} disabled={saving}>Approve</button>
-                    )}
-                    {isApprover && ev.approvalStatus === "Pending" && (
-                      <button style={rejectBtn} className="tc-btn" title="Send back" onClick={() => decide(ev, "Rejected")} disabled={saving}>Reject</button>
-                    )}
-                    <button style={editBtn} className="tc-btn" title="Edit" onClick={() => openEdit(ev)}>Edit</button>
-                    <button style={delBtn} className="tc-btn" title="Delete" onClick={() => deleteEvent(ev.id)}>Delete</button>
+                    <div className="tc-row-actions">
+                      {isApprover && ev.approvalStatus !== "Approved" && (
+                        <button className="tc-row-btn tc-row-btn-approve" title="Approve and publish" onClick={() => decide(ev, "Approved")} disabled={saving}><Icon name="check" size={16} /></button>
+                      )}
+                      {isApprover && ev.approvalStatus === "Pending" && (
+                        <button className="tc-row-btn tc-row-btn-warn" title="Send back" onClick={() => decide(ev, "Rejected")} disabled={saving}><Icon name="x" size={16} /></button>
+                      )}
+                      <button className="tc-row-btn tc-row-btn-edit" title="Edit" onClick={() => openEdit(ev)}><Icon name="edit" size={16} /></button>
+                      <button className="tc-row-btn tc-row-btn-danger" title="Delete" onClick={() => deleteEvent(ev.id)}><Icon name="trash" size={16} /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -656,14 +658,9 @@ const badgeGreen = { ...badgeBase, background: "#dcfce7", color: "#16a34a" };
 const badgeGray = { ...badgeBase, background: "#f1f5f9", color: "#6b7280" };
 const badgeRed = { ...badgeBase, background: "#fee2e2", color: "#dc2626" };
 const badgeAmber = { ...badgeBase, background: "#fef3c7", color: "#b45309" };
-const approveBtn = { background: "#dcfce7", color: "#16a34a", border: "1px solid #bbf7d0", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer", margin: "0 3px" };
-const rejectBtn = { background: "#fff", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer", margin: "0 3px" };
 const remarkNote = { fontSize: 11, color: "#dc2626", marginTop: 4, maxWidth: 150, marginLeft: "auto", marginRight: "auto", lineHeight: 1.35, overflowWrap: "anywhere" };
 const pendingBanner = { background: "#fef3c7", border: "1px solid #fde68a", color: "#92400e", borderRadius: 12, padding: "12px 16px", fontSize: 14, marginBottom: 16 };
 const makerBanner = { background: "#EFF5FF", border: "1px solid #DBE7FF", color: "#123471", borderRadius: 12, padding: "12px 16px", fontSize: 13.5, marginBottom: 16 };
-const iconAction = { background: "none", border: "none", cursor: "pointer", fontSize: "16px", margin: "0 4px" };
-const editBtn = { background: "#EFF5FF", color: "#1D4ED8", border: "1px solid #bfdbfe", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", margin: "0 3px" };
-const delBtn = { background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", margin: "0 3px" };
 
 const calCard = { border: "1px solid #eef2f8", borderRadius: "12px", padding: "16px", background: "#fafbff" };
 const calCardImg = { width: "100%", height: "110px", objectFit: "cover", borderRadius: "8px", marginBottom: "10px", display: "block" };

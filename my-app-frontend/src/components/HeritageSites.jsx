@@ -226,8 +226,10 @@ export default function HeritageSites() {
                   <td style={tdStyle}>{s.location}</td>
                   <td style={{ ...tdStyle, textAlign: "center" }}><span style={statusStyle(s.status)}>{s.status}</span></td>
                   <td style={{ ...tdStyle, textAlign: "center" }}>
-                    <button style={editBtn} className="tc-btn" title="Edit" onClick={() => openEdit(s)}>Edit</button>
-                    <button style={delBtn} className="tc-btn" title="Delete" onClick={() => deleteSite(s.id)}>Delete</button>
+                    <div className="tc-row-actions">
+                      <button className="tc-row-btn tc-row-btn-edit" title="Edit" onClick={() => openEdit(s)}><Icon name="edit" size={16} /></button>
+                      <button className="tc-row-btn tc-row-btn-danger" title="Delete" onClick={() => deleteSite(s.id)}><Icon name="trash" size={16} /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -435,9 +437,6 @@ const badgeGreen = { ...badgeBase, background: "#dcfce7", color: "#16a34a" };
 const badgeBlue = { ...badgeBase, background: "#dbeafe", color: "#1D4ED8" };
 const badgeAmber = { ...badgeBase, background: "#fef3c7", color: "#b45309" };
 const badgeRed = { ...badgeBase, background: "#fee2e2", color: "#dc2626" };
-const iconAction = { background: "none", border: "none", cursor: "pointer", fontSize: "16px", margin: "0 4px" };
-const editBtn = { background: "#EFF5FF", color: "#1D4ED8", border: "1px solid #bfdbfe", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", margin: "0 3px" };
-const delBtn = { background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 6, padding: "5px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", margin: "0 3px" };
 
 const overlay = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 };
 const detailModal = { background: "#fff", borderRadius: "16px", width: "780px", maxWidth: "100%", maxHeight: "92vh", overflowY: "auto", boxShadow: "0 20px 50px rgba(0,0,0,0.3)" };

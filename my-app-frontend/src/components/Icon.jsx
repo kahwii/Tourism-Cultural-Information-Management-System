@@ -23,6 +23,12 @@ const P = {
   star: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />,
   folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />,
   upload: <><path d="M12 16V4M7 9l5-5 5 5" /><path d="M20 16v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3" /></>,
+  edit: <><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></>,
+  key: <><circle cx="8" cy="15" r="4" /><path d="m10.85 12.15 7.65-7.65 2 2-1.5 1.5 1.5 1.5-2 2-1.5-1.5-1.5 1.5" /></>,
+  trash: <><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></>,
+  power: <><path d="M12 2v10" /><path d="M18.4 6.6a9 9 0 1 1-12.77.04" /></>,
+  check: <path d="M20 6 9 17l-5-5" />,
+  x: <><path d="M18 6 6 18" /><path d="M6 6l12 12" /></>,
 };
 
 export default function Icon({ name, size = 18, style, filled = false }) {
