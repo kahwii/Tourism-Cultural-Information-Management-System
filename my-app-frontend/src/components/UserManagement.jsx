@@ -5,6 +5,7 @@ import { useConfirm } from "./ConfirmDialog";
 import { useAuth } from "../context/AuthContext";
 import { apiList, apiUpdate, apiRemove, apiAdminCreateUser, apiAdminResetPassword } from "../api/api";
 import { toast } from "../utils/toast";
+import { fmtDate as fmtManilaDate } from "../utils/datetime";
 import Icon from "./Icon";
 import { pwChecks, pwValid, pwStrength } from "../utils/password";
 
@@ -50,11 +51,9 @@ export default function UserManagement() {
 
   useEffect(() => { load(); }, [load]);
 
-  const fmtDate = (d) => {
-    if (!d) return "—";
-    const dt = new Date(String(d).replace(" ", "T"));
-    return isNaN(dt) ? d : dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  };
+  // Server timestamps are UTC; shown in Manila time. "Last login" being a day
+  // out is how an account looks dormant when it was used last night.
+  const fmtDate = (d) => fmtManilaDate(d);
 
   const filtered = users.filter(u => {
     const matchSearch = [u.username, u.email, u.role].join(" ").toLowerCase().includes(search.toLowerCase());

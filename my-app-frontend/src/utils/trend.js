@@ -10,7 +10,10 @@
 // (years of history compressed flat, then a distorted spike). Filling every
 // month in the range with 0 fixes that: spacing on screen then actually
 // matches elapsed time.
-const parseDate = (d) => { const dt = new Date(String(d).replace(" ", "T")); return isNaN(dt) ? null : dt; };
+// API timestamps are UTC. Parsing them as local shifted every value by eight
+// hours, which is enough to push a late-evening entry into the previous day's
+// bucket and quietly distort the trend.
+const parseDate = (d) => { const dt = new Date(String(d).replace(" ", "T") + "Z"); return isNaN(dt) ? null : dt; };
 
 export function buildMonthlyTrend(reviews, { extendToToday = true } = {}) {
   const counts = {}; // "YYYY-MM" -> count

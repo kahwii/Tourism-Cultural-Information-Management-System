@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { usePagination } from "./Pagination";
 import { apiInquiries, apiInquiryReply } from "../api/api";
 import { toast } from "../utils/toast";
+import { fmtDateTime } from "../utils/datetime";
 import Icon from "./Icon";
 
 /*
@@ -9,11 +10,10 @@ import Icon from "./Icon";
   Replying emails the visitor and marks the inquiry Answered.
 */
 
-const fmtWhen = (d) => {
-  if (!d) return "—";
-  const dt = new Date(String(d).replace(" ", "T"));
-  return isNaN(dt) ? d : dt.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
-};
+// Server timestamps are UTC; fmtDateTime shows them in Manila time. This page
+// previously parsed them as local, so every inquiry displayed eight hours
+// early — one filed at 9:58 PM read as 1:58 PM.
+const fmtWhen = (d) => fmtDateTime(d);
 
 export default function Inquiries() {
   const [rows, setRows] = useState([]);

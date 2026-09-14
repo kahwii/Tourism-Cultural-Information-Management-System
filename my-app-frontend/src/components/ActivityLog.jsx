@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePagination } from "./Pagination";
 import { apiActivityLog } from "../api/api";
+import { fmtDateTime } from "../utils/datetime";
 import Icon from "./Icon";
 
 /* Badge color per action type */
@@ -41,13 +42,10 @@ export default function ActivityLog() {
 
   useEffect(() => { load(); }, [load]);
 
-  const fmtDate = (d) => {
-    if (!d) return "—";
-    const dt = new Date(String(d).replace(" ", "T"));
-    return isNaN(dt) ? d : dt.toLocaleString("en-US", {
-      month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
-    });
-  };
+  // Server timestamps are UTC — shown in Manila time. An audit trail that is
+  // eight hours out is worse than one with no times at all, because it can
+  // put an action before the thing that caused it.
+  const fmtDate = (d) => fmtDateTime(d);
 
   const actions = ["All", ...Array.from(new Set(logs.map(l => l.action)))];
 

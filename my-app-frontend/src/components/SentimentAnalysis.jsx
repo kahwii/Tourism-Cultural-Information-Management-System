@@ -7,6 +7,7 @@ import {
 import { apiList, apiRemove, apiReclassifySentiment, apiImportReviews, apiImportBatches, apiDeleteImportBatch } from "../api/api";
 import { isProfane, maskWord, maskText } from "../utils/profanity";
 import { parseCSV, mapFeedbackRow } from "../utils/csv";
+import { fmtDate as fmtManilaDate } from "../utils/datetime";
 import { toast } from "../utils/toast";
 import Icon from "./Icon";
 
@@ -60,11 +61,8 @@ export default function SentimentAnalysis() {
 
   useEffect(() => { load(); }, [load]);
 
-  const fmtDate = (d) => {
-    if (!d) return "—";
-    const dt = new Date(String(d).replace(" ", "T"));
-    return isNaN(dt) ? d : dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  };
+  // Server timestamps are UTC; shown in Manila time.
+  const fmtDate = (d) => fmtManilaDate(d);
 
   const total = reviews.length;
   const avg = total ? (reviews.reduce((s, r) => s + r.rating, 0) / total).toFixed(1) : 0;

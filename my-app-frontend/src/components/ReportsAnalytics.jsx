@@ -21,7 +21,10 @@ const TOPIC_KEYWORDS = {
   "Price / Value": ["expensive", "mahal", "affordable", "sulit", "mura"],
 };
 
-const parseDate = (d) => { const dt = new Date(String(d).replace(" ", "T")); return isNaN(dt) ? null : dt; };
+// API timestamps are UTC — the "Z" matters. Without it the browser reads them
+// as local and every date lands eight hours early, which can move a review
+// into the wrong day and therefore the wrong date-range filter.
+const parseDate = (d) => { const dt = new Date(String(d).replace(" ", "T") + "Z"); return isNaN(dt) ? null : dt; };
 
 // Branded tooltip for the Feedback Trend chart (replaces Recharts' plain default box).
 const TrendTooltip = ({ active, payload, label }) => {

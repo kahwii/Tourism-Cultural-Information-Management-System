@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { apiFeedbackCreate, apiFeedbackMine, apiVisitsMine, apiVisitToggle, apiList, fileUrl } from "../api/api";
 import { websiteHref, telHref, hasContact } from "../utils/contact";
 import { computePoints, tierFor } from "../utils/gamification";
+import { fmtDate as fmtManilaDate } from "../utils/datetime";
 import { toast } from "../utils/toast";
 import { useLanguage } from "../context/LanguageContext";
 import { HERITAGE_FIL, spotDescription, categoryLabel, bucketLabel } from "../i18n/translations";
@@ -361,7 +362,7 @@ export default function TouristExplore() {
                     <div key={f.id} style={reviewItem}>
                       <div style={{ color: "#EAA31E" }}>{"★".repeat(f.rating)}</div>
                       {f.comment && <div style={{ fontSize: 14, color: "#374151" }}>{f.comment}</div>}
-                      <div style={{ fontSize: 12, color: "#9ca3af" }}>{f.reviewer}{f.created_at ? " · " + new Date(String(f.created_at).replace(" ", "T")).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}</div>
+                      <div style={{ fontSize: 12, color: "#9ca3af" }}>{f.reviewer}{f.created_at ? " · " + fmtManilaDate(f.created_at, "") : ""}</div>
                     </div>
                   ))}
                 </>

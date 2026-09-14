@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiFeedbackMine } from "../api/api";
 import { maskText } from "../utils/profanity";
+import { fmtDate as fmtManilaDate } from "../utils/datetime";
 
 export default function TouristFeedback() {
   const [feedback, setFeedback] = useState([]);
@@ -24,11 +25,8 @@ export default function TouristFeedback() {
   const badge = (s) =>
     s === "Positive" ? bGreen : s === "Negative" ? bRed : bAmber;
 
-  const fmtDate = (d) => {
-    if (!d) return "";
-    const dt = new Date(d.replace(" ", "T"));
-    return isNaN(dt) ? d : dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  };
+  // Server timestamps are UTC; shown in Manila time.
+  const fmtDate = (d) => (d ? fmtManilaDate(d, "") : "");
 
   return (
     <>

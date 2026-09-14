@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useConfirm } from "./ConfirmDialog";
 import { apiList, apiUpdate, apiTrailProgress } from "../api/api";
 import { toast } from "../utils/toast";
+import { fmtDate } from "../utils/datetime";
 import Icon from "./Icon";
 
 export default function RewardsAdmin() {
@@ -39,11 +40,8 @@ export default function RewardsAdmin() {
 
   useEffect(() => { load(); }, [load]);
 
-  const fmt = (d) => {
-    if (!d) return "—";
-    const dt = new Date(String(d).replace(" ", "T"));
-    return isNaN(dt) ? d : dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  };
+  // Server timestamps are UTC; shown in Manila time.
+  const fmt = (d) => fmtDate(d);
 
   const markClaimed = async (r) => {
     if (!(await confirm({
