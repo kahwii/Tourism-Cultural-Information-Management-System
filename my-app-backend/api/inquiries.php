@@ -89,10 +89,60 @@ if ($method === 'POST') {
     if (mb_strlen($message) < 10) {
         http_response_code(400); echo json_encode(["error" => "Please describe your inquiry in a little more detail."]); exit;
     }
+    if (mb_strlen($subject) > 200) $subject = mb_substr($subject, 0, 200);
+
+    /*
+      COMPATIBILITY SHIM — staff reports belong in `reports`, not here.
+
+      A staff operations report is not a visitor inquiry: it should not sit in
+      the public question queue, should not trigger a "we'll reply by email"
+      acknowledgment, and needs a reply that reaches the staff member inside
+      the app. api/reports.php does all of that.
+
+      The mobile app still posts here, so rather than wait for it to move,
+      an authenticated staff submission carrying the "Staff Report" category
+      is written straight into `reports`. The result is that the report shows
+      up in the Staff Reports page and in the Reports & Analytics export, and
+      never appears in Visitor Inquiries — with no app change required.
+
+      Only this path is redirected. An anonymous visitor, or a staff member
+      asking an ordinary question, still files a normal inquiry below.
+
+      When the app moves to POSTing api/reports.php directly, this block can
+      be deleted without touching anything else.
+    */
+    if ($category === "Staff Report" && $isStaffSubmitter) {
+        $suid = (int)$submitter['id'];
+        $rsubject = $subject !== '' ? $subject : "Staff Operations Report";
+
+        // The 2,000-character cap below is an anti-abuse limit for a public
+        // form; a staff report is authenticated and may legitimately be long,
+        // and `reports.body` is TEXT, so it is not applied on this path.
+        $st = mysqli_prepare($conn, "INSERT INTO reports (user_id, subject, body, status) VALUES (?, ?, ?, 'New')");
+        mysqli_stmt_bind_param($st, "iss", $suid, $rsubject, $message);
+        if (!mysqli_stmt_execute($st)) {
+            http_response_code(500);
+            echo json_encode(["error" => "Could not file the report. Please try again."]);
+            exit;
+        }
+        $reportId = mysqli_insert_id($conn);
+        @log_activity($conn, $submitter, "Filed a staff report", "reports #$reportId", $rsubject);
+
+        // `ref_no` is kept in the response so an app already showing the
+        // inquiry receipt keeps working; the RPT- prefix makes it obvious in
+        // support conversations that this went down the reports path.
+        echo json_encode([
+            "success"   => true,
+            "ref_no"    => sprintf("RPT-%s-%04d", date("Y"), $reportId),
+            "report_id" => $reportId,
+            "message"   => "Report filed. CCAT will respond in the app.",
+        ]);
+        exit;
+    }
+
     if (mb_strlen($message) > 2000) {
         http_response_code(400); echo json_encode(["error" => "Your message is too long (2000 characters max)."]); exit;
     }
-    if (mb_strlen($subject) > 200) $subject = mb_substr($subject, 0, 200);
 
     // Rate limit: max 3 inquiries per IP per hour.
     //
