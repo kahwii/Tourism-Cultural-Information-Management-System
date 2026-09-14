@@ -45,9 +45,40 @@ if ($method === 'POST') {
         "Heritage Sites",
         "Business Accreditation",
         "General Inquiry",
+        "Staff Report",   // staff-only; see the check below
     ];
+
+    /*
+      "Staff Report" is the mobile app's operations report, which lands in the
+      same inbox as visitor questions. Two problems come with that, and this
+      block handles both.
+
+      Separation: the admin Inquiries page builds its category filter from
+      whatever categories exist in the data, so simply allowing this value is
+      enough for staff reports to become filterable there — no UI change.
+
+      Authorship: this endpoint is deliberately public (a visitor with no
+      account must be able to ask a question), which means a posted name and
+      email are just claims. That is fine for an inquiry CCAT will reply to,
+      but not for an internal report CCAT might act on — anyone could submit
+      one captioned as a staff report. So the category is only honoured for a
+      caller holding a valid staff/admin token, and for those callers the
+      author is taken from the ACCOUNT rather than the request body. A
+      "Staff Report" chip in the admin page therefore means it genuinely came
+      from a signed-in staff account, not merely that someone typed it.
+    */
+    $submitter = current_user($conn);                                   // null when unauthenticated
+    $isStaffSubmitter = $submitter && is_admin_role($submitter['role'] ?? '');
+
     $category = trim($body['category'] ?? '');
     if (!in_array($category, $ALLOWED_CATEGORIES, true)) $category = "General Inquiry";
+    if ($category === "Staff Report" && !$isStaffSubmitter) $category = "General Inquiry";
+
+    if ($isStaffSubmitter) {
+        // Verified author beats a self-reported one.
+        $name  = $submitter['username'] ?: $name;
+        $email = $submitter['email'] ?: $email;
+    }
 
     if ($name === '' || mb_strlen($name) > 150) {
         http_response_code(400); echo json_encode(["error" => "Please enter your name."]); exit;
@@ -64,8 +95,14 @@ if ($method === 'POST') {
     if (mb_strlen($subject) > 200) $subject = mb_substr($subject, 0, 200);
 
     // Rate limit: max 3 inquiries per IP per hour.
+    //
+    // Skipped for authenticated staff: the limit exists to stop anonymous
+    // abuse of a public form, and a signed-in staff account filing several
+    // operations reports in one shift is the normal case, not abuse. They are
+    // identifiable and accountable, which is what the IP limit is standing in
+    // for when the caller is anonymous.
     $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-    if ($ip !== '') {
+    if ($ip !== '' && !$isStaffSubmitter) {
         $st = mysqli_prepare($conn,
             "SELECT COUNT(*) AS c FROM inquiries
              WHERE ip_address = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)");
