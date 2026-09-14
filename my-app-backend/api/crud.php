@@ -25,6 +25,32 @@ $TABLES = [
   "rewards"            => ["user_id","reward","code","status","claimed_at"]
 ];
 
+/*
+  READ ACCESS — deny by default.
+
+  This map used to not exist: every table was readable by any signed-in
+  account, and only `users` and `rewards` were singled out and gated. That
+  meant a tourist who registered a minute ago could read the entire `reviews`
+  table — every comment with its `user_id` attached — by opening one URL.
+  Hiding the screen in the UI does not close that; the endpoint is the door.
+
+  The failure mode of the old shape is what makes it worth changing: adding a
+  new table to $TABLES silently published it, and staying private depended on
+  someone remembering to add a gate. Now a table is unreadable unless it is
+  listed here on purpose, so forgetting fails closed instead of open.
+
+  READ_PUBLIC — the tourism directory the tourist app legitimately browses.
+  READ_ADMIN  — anything carrying personal data or internal state
+                (is_admin_role() covers Super Admin, CCAT Admin, CCAT Staff).
+  `certificates` is neither: it has its own rule below (admins, or the
+  establishment that owns the row).
+
+  Writes are gated separately further down and are unchanged — tourists may
+  still POST reviews and visits, they simply cannot read everyone else's.
+*/
+$READ_PUBLIC = ["tourist_spots", "restaurants", "hotels", "tourism_businesses", "events", "heritage_sites"];
+$READ_ADMIN  = ["users", "rewards", "reviews", "visits"];
+
 $table = $_GET['table'] ?? '';
 if (!isset($TABLES[$table])) {
   http_response_code(400);
@@ -84,6 +110,25 @@ if (in_array($method, $writes, true)) {
 }
 
 if ($method === 'GET') {
+  // ---- Read access, enforced before a single row is fetched ----
+  // certificates keeps its own rule (below); everything else must be named
+  // in one of the two lists or it is refused.
+  if ($table !== 'certificates') {
+    if (in_array($table, $READ_ADMIN, true)) {
+      if (!$isAdmin) {
+        http_response_code(403);
+        echo json_encode(["error" => "Forbidden. This data is limited to CCAT staff and administrators."]);
+        exit;
+      }
+    } elseif (!in_array($table, $READ_PUBLIC, true)) {
+      // Not listed anywhere: a table added to $TABLES without a deliberate
+      // read decision. Refuse rather than guess.
+      http_response_code(403);
+      echo json_encode(["error" => "Forbidden."]);
+      exit;
+    }
+  }
+
   // table is whitelisted; id/owner_id are integers -> safe to inline
   $where = $id ? "WHERE id = $id" : "";
   if ($table === 'certificates') {
