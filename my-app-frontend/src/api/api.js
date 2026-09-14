@@ -142,6 +142,19 @@ export async function apiTrailProgress() {
   return handle(await fetch(`${BASE}/trail_progress.php`, { headers: authHeaders() }));
 }
 
+// ---- Staff operations reports (filed from the mobile app) ----
+// Approvers see every report; CCAT Staff see only their own.
+export async function apiReportsList() {
+  return handle(await fetch(`${BASE}/reports.php`, { headers: authHeaders() }));
+}
+// Approver-only. Sending admin_reply answers the report and marks it Replied;
+// sending only a status marks it Read without touching an existing answer.
+export async function apiReportRespond(id, payload) {
+  return handle(await fetch(`${BASE}/reports.php?id=${id}`, {
+    method: "PUT", headers: jsonHeaders(), body: JSON.stringify(payload),
+  }));
+}
+
 // ---- Heritage Trail completion certificate ----
 export async function apiCertificateStatus() {
   return handle(await fetch(`${BASE}/certificate.php`, { headers: authHeaders() }));

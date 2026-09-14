@@ -108,6 +108,10 @@ export default function AdminLayout() {
     { label: "Certificates", icon: "file", to: "/admin/certificates" },
     { label: "Events", icon: "calendar", to: "/admin/events" },
     { label: "Visitor Inquiries", icon: "message", to: "/admin/inquiries", badge: openInquiries },
+    // Separate from Visitor Inquiries on purpose: those are public questions
+    // answered by email, these are internal reports from CCAT's own field
+    // staff, answered back inside the mobile app.
+    { label: "Staff Reports", icon: "file", to: "/admin/staff-reports" },
     { label: "Heritage Sites", icon: "landmark", to: "/admin/heritage-sites" },
     { label: "Sentiment Analysis", icon: "message", to: "/admin/sentiment" },
     { label: "Reports & Analytics", icon: "chart", to: "/admin/reports" },

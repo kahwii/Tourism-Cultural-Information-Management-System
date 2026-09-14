@@ -21,6 +21,7 @@ import ActivityLog from './components/ActivityLog';
 import RewardsAdmin from './components/RewardsAdmin';
 import Certificates from './components/Certificates';
 import Inquiries from './components/Inquiries';
+import StaffReports from './components/StaffReports';
 import PublicEvents from './components/PublicEvents';
 import LandingRoute from './components/LandingRoute';
 import ApproverRoute from './components/ApproverRoute';
@@ -112,6 +113,10 @@ function App() {
             <Route path="certificates" element={<Certificates />} />
             <Route path="events" element={<Events />} />
             <Route path="inquiries" element={<Inquiries />} />
+            {/* Staff operations reports from the mobile app. Not approver-only:
+                a CCAT Staff member opens this to read the office's reply to
+                their own reports — reports.php scopes the list to them. */}
+            <Route path="staff-reports" element={<StaffReports />} />
             <Route path="heritage-sites" element={<HeritageSites />} />
             <Route path="sentiment" element={<SentimentAnalysis />} />
             <Route path="reports" element={<ReportsAnalytics />} />
