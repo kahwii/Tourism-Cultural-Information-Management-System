@@ -1,0 +1,86 @@
+[
+ {
+  "comment": "The staff were friendly and the place was very clean.",
+  "expected": "Positive"
+ },
+ {
+  "comment": "Napakaganda ng lugar, babalik ako ulit dito.",
+  "expected": "Positive"
+ },
+ {
+  "comment": "Sobrang dumi ng banyo, nakakadiri talaga.",
+  "expected": "Negative"
+ },
+ {
+  "comment": "Hindi maganda ang serbisyo dito.",
+  "expected": "Negative"
+ },
+ {
+  "comment": "The place was not clean at all.",
+  "expected": "Negative"
+ },
+ {
+  "comment": "Hindi naman masama, pwede na.",
+  "expected": "Neutral"
+ },
+ {
+  "comment": "Grabe ang ganda, sobrang worth it talaga!",
+  "expected": "Positive"
+ },
+ {
+  "comment": "Ang bagal ng service, sobrang nakakainis.",
+  "expected": "Negative"
+ },
+ {
+  "comment": "Ang ganda dito 😍😍😍",
+  "expected": "Positive"
+ },
+ {
+  "comment": "😊",
+  "expected": "Positive"
+ },
+ {
+  "comment": "Ang panget dito putangina.",
+  "expected": "Negative"
+ },
+ {
+  "comment": "okay lang",
+  "expected": "Neutral"
+ },
+ {
+  "comment": "maganda",
+  "expected": "Positive"
+ },
+ {
+  "comment": "pangit",
+  "expected": "Negative"
+ },
+ {
+  "comment": "Petmalu talaga ang lugar na 'to, solid!",
+  "expected": "Positive"
+ },
+ {
+  "comment": "sobrang gandaaa dto grabe",
+  "expected": "Positive"
+ },
+ {
+  "comment": "Room 204, 3rd floor.",
+  "expected": "Negative"
+ },
+ {
+  "comment": "Maganda ang view pero sobrang mahal at madumi ang CR.",
+  "expected": "Negative"
+ },
+ {
+  "comment": "",
+  "expected": "Negative"
+ },
+ {
+  "comment": "   ",
+  "expected": "Negative"
+ },
+ {
+  "comment": "Ñuñoa café — ang sarap!",
+  "expected": "Positive"
+ }
+]

@@ -40,6 +40,59 @@ function tcims_ml_tokenize($text) {
     return $matches[0];
 }
 
+/** Split a string into an array of characters (code points), UTF-8 safe. */
+function tcims_ml_chars($s) {
+    if (function_exists('mb_str_split')) return mb_str_split($s, 1, 'UTF-8');
+    $out = preg_split('//u', $s, -1, PREG_SPLIT_NO_EMPTY);
+    return $out === false ? [] : $out;
+}
+
+/**
+ * Character n-grams, reproducing scikit-learn's analyzer="char_wb" exactly.
+ *
+ * Why char_wb at all: the model search (ml_training/experiment_model_search.py)
+ * found character 3-5 grams beat word features by 6.5 points on this dataset,
+ * because real reviews are full of elongation and misspelling ("gandaaa",
+ * "gnda") and Filipino affixes heavily (ganda / maganda / napakaganda) —
+ * all unrelated tokens to a word model, all sharing "ganda" to a char model.
+ *
+ * scikit-learn's rule, which this must match character for character:
+ *   1. lowercase (done by the preprocessor)
+ *   2. collapse runs of 2+ whitespace into a single space
+ *   3. for each whitespace-separated word, pad it with ONE space on each side
+ *   4. for each n in the range, slide a window of n characters across the
+ *      padded word; if the padded word is shorter than n, emit it once (the
+ *      whole padded word, shorter than n) and stop increasing n for that word
+ *
+ * Step 4's short-word rule is easy to miss and silently changes the features
+ * for every short comment, which is exactly why parity_fixture.json and
+ * api/sentiment_ml_parity.php exist — they diff these PHP features against
+ * scikit-learn's own predictions rather than trusting this code by eye.
+ */
+function tcims_ml_char_wb_features($text, $lo, $hi) {
+    $text = mb_strtolower($text, 'UTF-8');
+    $text = preg_replace('/\s\s+/u', ' ', $text);
+
+    $features = [];
+    $words = preg_split('/\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY);
+    if (!$words) return $features;
+
+    foreach ($words as $word) {
+        $chars = tcims_ml_chars(' ' . $word . ' ');
+        $wLen = count($chars);
+        for ($n = $lo; $n <= $hi; $n++) {
+            $offset = 0;
+            $features[] = implode('', array_slice($chars, $offset, $n));
+            while ($offset + $n < $wLen) {
+                $offset++;
+                $features[] = implode('', array_slice($chars, $offset, $n));
+            }
+            if ($offset === 0) break; // word shorter than n: counted once, stop here
+        }
+    }
+    return $features;
+}
+
 /** Remove stopwords, then build n-grams from what's left — in that order,
  *  because that's the order scikit-learn applies them in. */
 function tcims_ml_features($tokens, $stopWords, $ngramRange) {
@@ -84,10 +137,18 @@ function tcims_sentiment_ml($comment) {
 
     if ($weights === null) return null; // no model trained/deployed — caller should skip storing ml_sentiment
 
-    $tokens = tcims_ml_tokenize((string)$comment);
     $ngramRange = $weights['ngram_range'] ?? [1, 1];
     $stopWords = $weights['stop_words'] ?? [];
-    $features = tcims_ml_features($tokens, $stopWords, $ngramRange);
+    // Older weight files predate the character-level model and have no
+    // "analyzer" key; those were all word models, so default accordingly.
+    $analyzer = $weights['analyzer'] ?? 'word';
+
+    if ($analyzer === 'char_wb') {
+        $features = tcims_ml_char_wb_features((string)$comment, $ngramRange[0], $ngramRange[1]);
+    } else {
+        $tokens = tcims_ml_tokenize((string)$comment);
+        $features = tcims_ml_features($tokens, $stopWords, $ngramRange);
+    }
 
     // Count how many times each in-vocabulary feature appears (bag of words).
     $counts = [];

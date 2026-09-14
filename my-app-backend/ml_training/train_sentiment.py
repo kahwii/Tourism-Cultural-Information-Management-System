@@ -34,6 +34,7 @@ import os
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
@@ -102,42 +103,80 @@ TAGALOG_ENGLISH_STOPWORDS = [
     "for", "and", "it", "this", "that", "i", "we", "you", "they",
 ]
 
+# CHARACTER n-grams are in this search because of a measured result, not a
+# hunch: experiment_model_search.py compared 256 feature/classifier
+# configurations on these same 126 examples and char_wb(3,5) beat the best
+# word-level setup by 6.5 points, winning 22 of 30 paired held-out splits.
+#
+# The reason it helps here is specific to this data. Real reviews are full of
+# elongation and misspelling ("gandaaa", "gnda", "dto"), and Filipino builds
+# meaning by affixing (ganda -> maganda -> napakaganda -> kagandahan). A
+# word-level model sees every one of those as an unrelated token and has to
+# learn each separately from a handful of examples. A character model sees
+# the shared "ganda" inside all of them.
 configs = []
 for ngram in [(1, 1), (1, 2)]:
     for stop in [None, TAGALOG_ENGLISH_STOPWORDS]:
-        label = f"ngram={ngram}, stopwords={'off' if stop is None else 'on'}"
-        configs.append((label, ngram, stop))
+        label = f"word {ngram}, stopwords={'off' if stop is None else 'on'}"
+        configs.append((label, "word", ngram, stop))
+for ngram in [(2, 4), (3, 5)]:
+    configs.append((f"char_wb {ngram}", "char_wb", ngram, None))
 
 ALPHAS = [0.1, 0.3, 0.5, 1.0, 2.0]
 
+# NO VOCABULARY LEAKAGE: the vectorizer is built INSIDE a Pipeline, so
+# scikit-learn re-fits it on each fold's training rows only. Previously the
+# vectorizer was fit once on ALL 126 comments before splitting, which let
+# the model know the vocabulary of the held-out rows while it was training —
+# a mild form of information leakage that inflates the reported score and is
+# exactly the sort of thing a panel is entitled to ask about. Building the
+# features inside the pipeline is the standard fix; the numbers printed below
+# are now measured on rows the model has genuinely never seen in any form.
+def make_vectorizer(analyzer, ngram, stop):
+    if analyzer == "char_wb":
+        # stop_words does not apply to a character analyzer (scikit-learn
+        # ignores it there), so it is deliberately not passed.
+        return CountVectorizer(lowercase=True, analyzer="char_wb", ngram_range=ngram)
+    return CountVectorizer(lowercase=True, ngram_range=ngram, stop_words=stop)
+
+
+def make_pipeline(analyzer, ngram, stop, alpha):
+    return Pipeline([
+        ("vec", make_vectorizer(analyzer, ngram, stop)),
+        ("nb", MultinomialNB(alpha=alpha)),
+    ])
+
+
+y = np.array(labels)
+
 print("\nGrid search over feature + smoothing settings, 5-fold CV (real data only):")
 best = {"score": -1}
-for label, ngram, stop in configs:
-    vec = CountVectorizer(lowercase=True, ngram_range=ngram, stop_words=stop)
-    X_try = vec.fit_transform(comments)
+for label, analyzer, ngram, stop in configs:
     for alpha in ALPHAS:
-        scores = cross_val_score(MultinomialNB(alpha=alpha), X_try, np.array(labels), cv=5)
+        scores = cross_val_score(make_pipeline(analyzer, ngram, stop, alpha), comments, y, cv=5)
         if scores.mean() > best["score"]:
             best = {
                 "score": scores.mean(), "scores": scores, "label": f"{label}, alpha={alpha}",
-                "vectorizer": vec, "X": X_try, "ngram": ngram, "alpha": alpha,
+                "analyzer": analyzer, "ngram": ngram, "stop": stop, "alpha": alpha,
             }
 
 # Show where the winner landed against the plain baseline, for context.
-baseline_vec = CountVectorizer(lowercase=True, ngram_range=(1, 1))
-baseline_X = baseline_vec.fit_transform(comments)
-baseline_scores = cross_val_score(MultinomialNB(), baseline_X, np.array(labels), cv=5)
-print(f"  Baseline (unigrams, stopwords off, alpha=1.0): {baseline_scores.mean():.2%}")
+baseline_scores = cross_val_score(make_pipeline("word", (1, 1), None, 1.0), comments, y, cv=5)
+print(f"  Baseline (word unigrams, stopwords off, alpha=1.0): {baseline_scores.mean():.2%}")
 print(f"  Best found: {best['label']} -> {best['score']:.2%}")
 
-vectorizer = best["vectorizer"]
-X = best["X"]
-y = np.array(labels)
+best_analyzer = best["analyzer"]
 best_ngram = best["ngram"]
+best_stop = best["stop"]
 best_alpha = best["alpha"]
 best_cv_scores = best["scores"]
 
-print(f"Vocabulary size: {len(vectorizer.vocabulary_)} distinct features.")
+# Descriptive only — how many features the winning settings produce over the
+# whole real dataset. Not used for training or scoring anything below.
+_desc_vec = make_vectorizer(best_analyzer, best_ngram, best_stop)
+_desc_vec.fit(comments)
+print(f"Vocabulary size: {len(_desc_vec.vocabulary_)} distinct features "
+      f"(analyzer = {best_analyzer}).")
 
 # ---------------------------------------------------------------
 # 3. Cross-validation result for the winning configuration
@@ -158,13 +197,15 @@ print(f"\n5-fold cross-validation accuracy: {cv_scores.mean():.2%} "
 # stratify=y keeps the same proportion of Positive/Neutral/Negative in
 # both the train and test sets, instead of a random split accidentally
 # putting almost all of one class into the test set.
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
+# Split the RAW TEXT, then fit the whole pipeline (vectorizer included) on
+# the training half only — same no-leakage discipline as the grid search above.
+txt_train, txt_test, y_train, y_test = train_test_split(
+    comments, y, test_size=0.2, random_state=42, stratify=y
 )
 
-model = MultinomialNB(alpha=best_alpha)
-model.fit(X_train, y_train)
-predictions = model.predict(X_test)
+model = make_pipeline(best_analyzer, best_ngram, best_stop, best_alpha)
+model.fit(txt_train, y_train)
+predictions = model.predict(txt_test)
 
 print(f"\nHeld-out test accuracy: {accuracy_score(y_test, predictions):.2%} "
       f"({len(y_test)} test examples)")
@@ -195,17 +236,18 @@ for i, row in enumerate(cm):
 N_REPEATS = 30
 repeat_scores = []
 for seed in range(N_REPEATS):
-    Xr_train, Xr_test, yr_train, yr_test = train_test_split(
-        X, y, test_size=0.2, random_state=seed, stratify=y
+    txt_r_train, txt_r_test, yr_train, yr_test = train_test_split(
+        comments, y, test_size=0.2, random_state=seed, stratify=y
     )
-    m = MultinomialNB(alpha=best_alpha)
-    m.fit(Xr_train, yr_train)
-    repeat_scores.append(accuracy_score(yr_test, m.predict(Xr_test)))
+    m = make_pipeline(best_analyzer, best_ngram, best_stop, best_alpha)
+    m.fit(txt_r_train, yr_train)
+    repeat_scores.append(accuracy_score(yr_test, m.predict(txt_r_test)))
 repeat_scores = np.array(repeat_scores)
 print(f"\nRepeated random sub-sampling ({N_REPEATS} different 80/20 splits): "
       f"{repeat_scores.mean():.2%} average (min {repeat_scores.min():.0%}, max {repeat_scores.max():.0%})")
-print("This is the more trustworthy 'held-out style' number for the thesis — "
-      "the single-split 60.87% above is just one of these draws.")
+print("^^ THIS is the number to quote in the thesis. It averages 30 different")
+print("   held-out draws, so it is not at the mercy of one lucky/unlucky split")
+print("   the way the single-split figure printed above is.")
 
 # ---------------------------------------------------------------
 # 5. Re-train on ALL the data for the model we actually ship
@@ -231,8 +273,8 @@ if synthetic_count:
     print(f"Production model will train on {len(final_comments)} total examples "
           f"({len(comments)} real + {synthetic_count} synthetic).")
 
-best_stop_words = vectorizer.stop_words  # None, or the Tagalog/English stopword list
-final_vectorizer = CountVectorizer(lowercase=True, ngram_range=best_ngram, stop_words=best_stop_words)
+best_stop_words = best_stop  # None, or the Tagalog/English stopword list
+final_vectorizer = make_vectorizer(best_analyzer, best_ngram, best_stop_words)
 final_X = final_vectorizer.fit_transform(final_comments)
 final_y = np.array(final_labels)
 
@@ -251,14 +293,60 @@ final_model.fit(final_X, final_y)
 # plain PHP to do without needing scikit-learn installed on the server.
 weights = {
     "classes": list(final_model.classes_),
-    "ngram_range": list(best_ngram),  # tells the PHP side whether it must also build word-pair features
-    "stop_words": list(best_stop_words) if best_stop_words else [],  # words the PHP tokenizer must also drop
-    "vocabulary": {k: int(v) for k, v in final_vectorizer.vocabulary_.items()},  # word (or "word word") -> column index
+    # "word" = split into words (and optionally word pairs);
+    # "char_wb" = character n-grams taken inside word boundaries, each word
+    # padded with a space at both ends. config/sentiment_ml.php branches on
+    # this, and must reproduce scikit-learn's rule exactly or the PHP and
+    # Python predictions will silently diverge.
+    "analyzer": best_analyzer,
+    "ngram_range": list(best_ngram),
+    "stop_words": list(best_stop_words) if best_stop_words else [],  # word analyzer only
+    "vocabulary": {k: int(v) for k, v in final_vectorizer.vocabulary_.items()},  # feature -> column index
     "class_log_prior": final_model.class_log_prior_.tolist(),
-    "feature_log_prob": final_model.feature_log_prob_.tolist(),  # [class][word_index]
+    "feature_log_prob": final_model.feature_log_prob_.tolist(),  # [class][feature_index]
 }
 with open("model_weights.json", "w", encoding="utf-8") as f:
     json.dump(weights, f, ensure_ascii=False)
 
-print(f"\nSaved model_weights.json ({len(final_vectorizer.vocabulary_)} words, "
-      f"{len(final_model.classes_)} classes).")
+print(f"\nSaved model_weights.json ({len(final_vectorizer.vocabulary_)} features, "
+      f"analyzer={best_analyzer}, {len(final_model.classes_)} classes).")
+
+# ---------------------------------------------------------------
+# 7. Parity fixture for the PHP side
+# ---------------------------------------------------------------
+# The PHP inference has to reproduce scikit-learn's feature extraction
+# exactly. Any mismatch (a different way of padding words, of handling
+# multi-byte characters, of collapsing whitespace) produces predictions that
+# are wrong in ways no PHP unit test would notice, because PHP has nothing
+# to compare against. So the trained model's own predictions on a fixed set
+# of comments are written out here, and api/sentiment_ml_parity.php replays
+# the same comments through the PHP implementation and diffs the two.
+PARITY_SAMPLES = [
+    "The staff were friendly and the place was very clean.",
+    "Napakaganda ng lugar, babalik ako ulit dito.",
+    "Sobrang dumi ng banyo, nakakadiri talaga.",
+    "Hindi maganda ang serbisyo dito.",
+    "The place was not clean at all.",
+    "Hindi naman masama, pwede na.",
+    "Grabe ang ganda, sobrang worth it talaga!",
+    "Ang bagal ng service, sobrang nakakainis.",
+    "Ang ganda dito 😍😍😍",
+    "😊",
+    "Ang panget dito putangina.",
+    "okay lang",
+    "maganda",
+    "pangit",
+    "Petmalu talaga ang lugar na 'to, solid!",
+    "sobrang gandaaa dto grabe",
+    "Room 204, 3rd floor.",
+    "Maganda ang view pero sobrang mahal at madumi ang CR.",
+    "",
+    "   ",
+    "Ñuñoa café — ang sarap!",
+]
+parity = [{"comment": c, "expected": str(final_model.predict(final_vectorizer.transform([c]))[0])}
+          for c in PARITY_SAMPLES]
+with open("parity_fixture.json", "w", encoding="utf-8") as f:
+    json.dump(parity, f, ensure_ascii=False, indent=1)
+print(f"Saved parity_fixture.json ({len(parity)} cases) — run "
+      f"api/sentiment_ml_parity.php?key=tcims_eval to confirm PHP agrees.")
