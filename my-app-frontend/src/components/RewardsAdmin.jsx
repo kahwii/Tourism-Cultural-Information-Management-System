@@ -72,6 +72,9 @@ export default function RewardsAdmin() {
   const walkers = (progress?.tourists || []).filter(t =>
     [t.username, t.email, t.status].join(" ").toLowerCase().includes(progressSearch.toLowerCase())
   );
+  // Mugs held by tourists whose trail isn't actually complete — all of them
+  // pre-date the verification requirement.
+  const legacyCount = (progress?.tourists || []).filter(t => t.has_reward && t.done < t.total).length;
   const counts = {
     total: rewards.length,
     unclaimed: rewards.filter(r => r.status === "Unclaimed").length,
@@ -180,6 +183,16 @@ export default function RewardsAdmin() {
           </div>
         ) : (
           <>
+            {legacyCount > 0 && (
+              <div style={legacyBanner}>
+                <b>{legacyCount} mug{legacyCount > 1 ? "s were" : " was"} issued before GPS + photo
+                verification was enforced.</b> Those tourists show a mug against an unfinished trail
+                below. The records are kept on purpose — the mugs were physically handed over, and
+                deleting the rows would erase that. New mugs can only be issued on {trailTotal}{" "}
+                verified check-ins.
+              </div>
+            )}
+
             <div style={{ marginBottom: 16 }}>
               <div style={searchBox} className="tc-search">
                 <span style={{ opacity: 0.5 }}></span>
@@ -238,9 +251,21 @@ export default function RewardsAdmin() {
                     <td style={tdStyle}>{fmt(t.last_check_in)}</td>
                     <td style={{ ...tdStyle, textAlign: "center" }}>
                       {t.has_reward ? (
-                        <span style={t.reward_status === "Claimed" ? badgeGreen : badgeAmber}>
-                          {t.reward_status}
-                        </span>
+                        <>
+                          <span style={t.reward_status === "Claimed" ? badgeGreen : badgeAmber}>
+                            {t.reward_status}
+                          </span>
+                          {/* A mug against an unfinished trail is not a display
+                              bug — it is a record of one issued before GPS +
+                              photo verification was enforced. Saying so keeps
+                              the row honest without deleting the fact that a
+                              physical mug changed hands. */}
+                          {t.done < t.total && (
+                            <div style={legacyNote}>
+                              Issued before verification was required — not backed by verified check-ins
+                            </div>
+                          )}
+                        </>
                       ) : t.status === "Completed" ? (
                         <span style={{ fontSize: 13, color: "#b45309" }}>Not issued yet</span>
                       ) : (
@@ -296,4 +321,6 @@ const miniStats = { display: "flex", gap: 16, fontSize: 13, color: "#6b7280", wh
 const barTrack = { flex: 1, minWidth: 90, height: 8, borderRadius: 999, background: "#eef2f8", overflow: "hidden" };
 const barFill = { height: "100%", borderRadius: 999, transition: "width .3s ease" };
 const unverifiedNote = { fontSize: 11.5, color: "#b45309", fontWeight: 500, marginTop: 3 };
+const legacyNote = { fontSize: 11, color: "#b45309", marginTop: 4, lineHeight: 1.35, maxWidth: 190, marginLeft: "auto", marginRight: "auto" };
+const legacyBanner = { background: "#FFFBEB", border: "1px solid #FDE68A", color: "#92400E", borderRadius: 12, padding: "12px 16px", fontSize: 13.5, lineHeight: 1.5, marginBottom: 16 };
 const claimBtn = { background: "#ea580c", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 14px", fontSize: "13px", fontWeight: 600, cursor: "pointer" };
