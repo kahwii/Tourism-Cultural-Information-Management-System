@@ -639,6 +639,63 @@ export default function ReportsAnalytics() {
       y = table(sec.title, sec.header, sec.data.map(row => row.map(String)), y);
     });
 
+    /*
+      Staff reports are printed in full, as prose rather than table rows.
+
+      The body IS the report — a printed count of how many were filed is of no
+      use to CCAT on its own. But table() draws every row at a fixed height, so
+      a 2,000-character body pushed through it would overlap the rows beneath
+      it. Each report is laid out here instead: a heading line, the text
+      wrapped to the page, the office's reply if there is one, and a page break
+      when the next one will not fit.
+    */
+    if (r.key === "staff" && staffReports.length) {
+      staffReports.forEach((s, i) => {
+        if (y > 235) { doc.addPage(); y = 20; }
+
+        doc.setFont("helvetica", "bold"); doc.setFontSize(11.5); doc.setTextColor(37, 99, 235);
+        doc.text(doc.splitTextToSize(`${i + 1}. ${s.subject || "Staff Operations Report"}`, W - 2 * M), M, y);
+        y += 6;
+
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(107, 114, 128);
+        const who = s.filed_by || s.filed_by_email || `User #${s.user_id}`;
+        doc.text(`Filed by ${who}  ·  ${fmtDay(s.created_at)}  ·  ${s.status || "New"}`, M, y);
+        y += 6;
+
+        // Blank lines in the source keep their spacing: the report is written
+        // with headings and bullet groups, and running it together as one
+        // block would lose the shape the staff member gave it.
+        doc.setFontSize(9.5); doc.setTextColor(55, 65, 81);
+        String(s.body ?? "").split(/\r?\n/).forEach(line => {
+          if (line.trim() === "") { y += 3; return; }
+          const wrapped = doc.splitTextToSize(line, W - 2 * M);
+          wrapped.forEach(w => {
+            if (y > 278) { doc.addPage(); y = 20; }
+            doc.text(w, M, y);
+            y += 4.6;
+          });
+        });
+
+        if (s.admin_reply) {
+          y += 3;
+          if (y > 265) { doc.addPage(); y = 20; }
+          doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(21, 128, 61);
+          doc.text(`CCAT reply${s.replied_by_name ? " — " + s.replied_by_name : ""}${s.replied_at ? " · " + fmtDay(s.replied_at) : ""}:`, M, y);
+          y += 5;
+          doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(55, 65, 81);
+          doc.splitTextToSize(String(s.admin_reply), W - 2 * M).forEach(w => {
+            if (y > 278) { doc.addPage(); y = 20; }
+            doc.text(w, M, y);
+            y += 4.6;
+          });
+        }
+
+        y += 8;
+        doc.setDrawColor(219, 228, 242); doc.setLineWidth(0.2);
+        if (y < 280) { doc.line(M, y - 4, W - M, y - 4); }
+      });
+    }
+
     if ((r.key === "feedback" || r.key === "sentiment") && reviews.length) {
       if (y > 260) { doc.addPage(); y = 20; }
       doc.setFont("helvetica", "italic"); doc.setFontSize(9); doc.setTextColor(107, 114, 128);
