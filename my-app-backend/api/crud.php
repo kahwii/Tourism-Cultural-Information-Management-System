@@ -146,6 +146,9 @@ if ($method === 'GET') {
     }
   }
   if ($id) {
+    // Same rule as the list below: a single unapproved event fetched by id is
+    // just as unpublished as one in a listing.
+    if ($table === 'events' && !$isAdmin) $where .= " AND approval_status = 'Approved'";
     $res = mysqli_query($conn, "SELECT * FROM `$table` $where ORDER BY id DESC");
     $rows = [];
     while ($r = mysqli_fetch_assoc($res)) $rows[] = $r;
@@ -159,6 +162,24 @@ if ($method === 'GET') {
   // endpoint from ever returning an unbounded number of rows once a table
   // grows into the thousands. Every table today is well under this cap, so
   // existing frontend calls that don't pass these params see no change.
+  /*
+    Events awaiting approval are not public.
+
+    A CCAT Staff member's new event is held at approval_status = 'Pending'
+    until an approver publishes it (see the POST/PUT handlers below). The
+    tourist-facing pages were filtering those out in the browser, which hides
+    them from the page but not from the endpoint: any signed-in tourist
+    reading this table directly still received every unapproved event, draft
+    wording and all. Same shape of problem as the reviews leak — the screen
+    was doing the work the server should do.
+
+    Staff and admins still see everything, which is what the admin Events page
+    and the approval queue need.
+  */
+  if ($table === 'events' && !$isAdmin) {
+    $where .= ($where === "" ? "WHERE " : " AND ") . "approval_status = 'Approved'";
+  }
+
   $maxLimit = 2000;
   $limit  = isset($_GET['limit'])  ? max(1, min((int)$_GET['limit'], $maxLimit)) : 1000;
   $offset = isset($_GET['offset']) ? max(0, (int)$_GET['offset']) : 0;
