@@ -76,6 +76,27 @@ export default function TouristTrail() {
   const pct = TRAIL.length ? Math.round((done / TRAIL.length) * 100) : 0;
   const completed = done === TRAIL.length && TRAIL.length > 0;
 
+  // Register a finished trail with CCAT automatically, instead of waiting for
+  // the tourist to press "claim".
+  //
+  // The admin Rewards page is how CCAT sees who has completed the trail. When
+  // issuing depended on a button press, anyone who finished but never tapped
+  // it was invisible to staff — and the mobile app, which registers
+  // completion on its own, would disagree with the website for the very same
+  // account. Claiming here keeps both platforms showing the same thing.
+  //
+  // Safe to fire on load: claim_reward.php re-checks completion server-side
+  // and returns the existing record instead of issuing a second code, so this
+  // is idempotent. Failures are ignored — the manual button below still works.
+  useEffect(() => {
+    if (!completed || reward) return;
+    let cancelled = false;
+    apiRewardClaim()
+      .then(r => { if (!cancelled && r?.code) setReward(r); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [completed, reward]);
+
   // gamification: points + tier from total check-ins & reviews
   const points = computePoints({ checkins: visited.length, reviews: reviewsCount });
   const tier = tierFor(visited.length);
