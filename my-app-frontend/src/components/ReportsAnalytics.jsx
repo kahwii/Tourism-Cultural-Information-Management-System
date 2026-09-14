@@ -4,7 +4,7 @@ import {
   AreaChart, Area, PieChart, Pie, Cell,
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from "recharts";
-import { apiList } from "../api/api";
+import { apiList, apiReportsList } from "../api/api";
 import { buildMonthlyTrend } from "../utils/trend";
 import { describe, formatDelta } from "../utils/stats";
 import Icon from "./Icon";
@@ -74,6 +74,10 @@ export default function ReportsAnalytics() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [db, setDb] = useState({ reviews: [], certificates: [], events: [], tourist_spots: [], restaurants: [], hotels: [], tourism_businesses: [], heritage_sites: [], visits: [] });
+  // Staff operations reports come from their own endpoint, not crud.php:
+  // reports.php scopes the list by role (approvers see all, a CCAT Staff
+  // member sees only their own), which a generic table read cannot do.
+  const [staffReports, setStaffReports] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
@@ -83,6 +87,10 @@ export default function ReportsAnalytics() {
       const next = {};
       tables.forEach((t, i) => { next[t] = Array.isArray(results[i]) ? results[i] : []; });
       setDb(next);
+      // Failure here must not blank the whole page — every other report on it
+      // is still valid without this one.
+      const sr = await apiReportsList().catch(() => []);
+      setStaffReports(Array.isArray(sr) ? sr : []);
     } catch (e) {
       setErr(e.message || "Failed to load analytics data.");
     } finally {
@@ -285,6 +293,31 @@ export default function ReportsAnalytics() {
   })).sort((a, b) => b.count - a.count);
   const topTopics = topics.filter(t => t.count > 0).slice(0, 3).map(t => t.topic).join(", ") || "—";
 
+  // ---- staff operations reports (mobile app -> CCAT) ----
+  // Timestamps are stored UTC; shown in Manila time so the exported record
+  // matches the day the staff member actually filed it.
+  const fmtDay = (d) => {
+    if (!d) return "—";
+    const dt = new Date(String(d).replace(" ", "T") + "Z");
+    return isNaN(dt) ? d : dt.toLocaleString("en-PH", {
+      month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+    });
+  };
+
+  const staffTotal      = staffReports.length;
+  const staffAnswered   = staffReports.filter(s => s.status === "Replied").length;
+  const staffUnanswered = staffTotal - staffAnswered;
+  const staffFilers     = new Set(staffReports.map(s => String(s.user_id))).size;
+  const staffLatest     = staffTotal ? fmtDay(staffReports[0].created_at) : "—"; // list is newest-first
+  const staffByFiler = (() => {
+    const map = {};
+    staffReports.forEach(s => {
+      const who = s.filed_by || s.filed_by_email || `User #${s.user_id}`;
+      map[who] = (map[who] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  })();
+
   // ---- exportable reports (real metrics) ----
   const REPORTS = [
     {
@@ -337,6 +370,17 @@ export default function ReportsAnalytics() {
         { label: "Neutral", value: `${neutralPct}%` },
         { label: "Negative", value: `${negativePct}%` },
         { label: "Top Topics", value: topTopics },
+      ],
+    },
+    {
+      key: "staff", title: "Staff Operations Reports", icon: "", color: "#7c3aed",
+      desc: "Field reports filed by CCAT staff from the mobile app, and how many have been answered.",
+      metrics: [
+        { label: "Reports Filed", value: String(staffTotal) },
+        { label: "Awaiting Reply", value: String(staffUnanswered) },
+        { label: "Answered", value: String(staffAnswered) },
+        { label: "Reporting Staff", value: String(staffFilers) },
+        { label: "Latest Report", value: staffLatest },
       ],
     },
   ];
@@ -399,6 +443,30 @@ export default function ReportsAnalytics() {
       if (mostVisitedSites.length) ex.push({ title: "Most Visited Heritage Sites", header: ["#", "Site", "Check-ins"], data: mostVisitedSites.map((p, i) => [i + 1, p.name, p.value]) });
       if (unmatchedCheckins.length) ex.push({ title: "Check-ins Needing Cleanup (place not in current directory)", header: ["Place Name", "Check-ins"], data: unmatchedCheckins.map(p => [p.name, p.value]) });
     }
+    if (r.key === "staff") {
+      ex.push({ title: "Reporting Summary", header: ["Measure", "Value"], data: [
+        ["Reports Filed", staffTotal],
+        ["Awaiting Reply", staffUnanswered],
+        ["Answered", staffAnswered],
+        ["Distinct Staff Reporting", staffFilers],
+      ]});
+      if (staffByFiler.length) {
+        ex.push({ title: "Reports per Staff Member", header: ["#", "Staff", "Reports"],
+          data: staffByFiler.map((s, i) => [i + 1, s.name, s.value]) });
+      }
+      // A titles-only list is safe for the PDF: it shows WHAT was reported
+      // without the full bodies, which would bury the summary. The complete
+      // text goes to the spreadsheet exports via withRawData() below.
+      if (staffReports.length) {
+        ex.push({ title: "Reports Filed", header: ["Date", "Staff", "Subject", "Status"],
+          data: staffReports.slice(0, 25).map(s => [
+            fmtDay(s.created_at),
+            s.filed_by || s.filed_by_email || `User #${s.user_id}`,
+            s.subject || "—",
+            s.status || "—",
+          ]) });
+      }
+    }
     return ex;
   };
 
@@ -433,10 +501,37 @@ export default function ReportsAnalytics() {
       ]),
   });
 
+  /*
+    Full staff report text, for the spreadsheet exports only.
+
+    Same reasoning as the review appendix: the whole point of exporting staff
+    reports is to have what field staff actually WROTE — a printable record
+    CCAT can file or act on — not just a count of them. But a few 2,000-word
+    bodies would swamp the PDF, so the complete text is attached to CSV and
+    Excel and the PDF keeps the titles-only list from buildExtras().
+  */
+  const rawStaffSection = () => ({
+    title: `All Staff Reports (${staffReports.length} records)`,
+    header: ["#", "Date", "Staff", "Subject", "Status", "Report", "Reply"],
+    data: staffReports.map((s, i) => [
+      i + 1,
+      fmtDay(s.created_at),
+      s.filed_by || s.filed_by_email || `User #${s.user_id}`,
+      s.subject || "—",
+      s.status || "—",
+      // Newlines inside a cell break row alignment in some spreadsheet apps.
+      String(s.body ?? "").replace(/[\r\n]+/g, " ").trim(),
+      String(s.admin_reply ?? "").replace(/[\r\n]+/g, " ").trim() || "—",
+    ]),
+  });
+
   const withRawData = (r) => {
     const secs = buildExtras(r);
     if ((r.key === "feedback" || r.key === "sentiment") && reviews.length) {
       secs.push(rawReviewSection());
+    }
+    if (r.key === "staff" && staffReports.length) {
+      secs.push(rawStaffSection());
     }
     return secs;
   };
