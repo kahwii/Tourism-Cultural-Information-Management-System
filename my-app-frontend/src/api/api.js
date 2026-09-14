@@ -136,6 +136,11 @@ export async function apiRewardMine() {
 export async function apiRewardClaim() {
   return handle(await fetch(`${BASE}/claim_reward.php`, { method: "POST", headers: jsonHeaders() }));
 }
+// Admin: per-tourist Heritage Trail progress (1 of 9, 9 of 9, not started).
+// Counts the same way claim_reward.php does, so the two can never disagree.
+export async function apiTrailProgress() {
+  return handle(await fetch(`${BASE}/trail_progress.php`, { headers: authHeaders() }));
+}
 
 // ---- Heritage Trail completion certificate ----
 export async function apiCertificateStatus() {
