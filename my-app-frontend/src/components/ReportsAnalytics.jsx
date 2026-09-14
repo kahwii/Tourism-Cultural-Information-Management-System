@@ -587,30 +587,68 @@ export default function ReportsAnalytics() {
     const doc = new jsPDF();
     const W = 210, M = 14;
 
+    /*
+      Rows are sized to their tallest cell, not to a fixed height.
+
+      Every row used to be drawn 8.5mm tall while the text was wrapped with
+      splitTextToSize, which returns as many lines as it needs. Those extra
+      lines were all drawn from the same starting y, so anything that wrapped
+      spilled into the row beneath it and the separator lines cut through the
+      text — an email broke as "staff@bemandaluyong.co" with a stray "m"
+      underneath. Measuring first and then drawing fixes it for every table on
+      this page, not just the one where it was noticed.
+
+      Long tables also paginate now: a table that runs past the bottom of the
+      page continues on the next one with its header repeated, instead of
+      drawing off the edge.
+    */
+    const LINE_H = 4.6, PAD_V = 2.6, BOTTOM = 280;
+
     const table = (title, header, data, y) => {
-      const tw = W - 2 * M, n = header.length, rowH = 8.5;
+      const tw = W - 2 * M, n = header.length, headH = 8.5;
       let widths;
       if (n === 2) widths = [tw * 0.62, tw * 0.38];
       else if (n === 3) widths = [tw * 0.12, tw * 0.6, tw * 0.28];
+      // Date / Staff / Subject / Status — equal quarters left no room for an
+      // email address or a real subject line, so both wrapped awkwardly.
+      else if (n === 4) widths = [tw * 0.26, tw * 0.29, tw * 0.31, tw * 0.14];
       else widths = header.map(() => tw / n);
+
       doc.setFont("helvetica", "bold"); doc.setFontSize(11.5); doc.setTextColor(37, 99, 235);
       doc.text(title, M, y); y += 3;
-      const top = y;
-      // header row
-      doc.setFillColor(37, 99, 235); doc.rect(M, y, tw, rowH, "F");
-      doc.setTextColor(255, 255, 255); doc.setFontSize(9.5);
-      let cx = M; header.forEach((h, i) => { doc.text(String(h), cx + 3, y + 5.8); cx += widths[i]; });
-      y += rowH;
-      // data rows
-      doc.setFont("helvetica", "normal"); doc.setTextColor(55, 65, 81);
+
+      let top = y;
+      const drawHeader = () => {
+        doc.setFont("helvetica", "bold"); doc.setFontSize(9.5);
+        doc.setFillColor(37, 99, 235); doc.rect(M, y, tw, headH, "F");
+        doc.setTextColor(255, 255, 255);
+        let hx = M;
+        header.forEach((h, i) => { doc.text(String(h), hx + 3, y + 5.8); hx += widths[i]; });
+        y += headH;
+        doc.setFont("helvetica", "normal"); doc.setTextColor(55, 65, 81);
+      };
+      drawHeader();
+
       data.forEach((row, ri) => {
+        // Wrap every cell first so the row's height is known before drawing.
+        const cells = row.map((c, ci) => doc.splitTextToSize(String(c ?? ""), widths[ci] - 6));
+        const rowH = Math.max(headH, Math.max(...cells.map(c => c.length)) * LINE_H + PAD_V * 2);
+
+        if (y + rowH > BOTTOM) {
+          doc.setDrawColor(219, 228, 242); doc.setLineWidth(0.2);
+          doc.rect(M, top, tw, y - top);
+          doc.addPage(); y = 20; top = y;
+          drawHeader();
+        }
+
         if (ri % 2 === 1) { doc.setFillColor(244, 247, 252); doc.rect(M, y, tw, rowH, "F"); }
-        cx = M;
-        row.forEach((c, ci) => { doc.text(doc.splitTextToSize(String(c), widths[ci] - 6), cx + 3, y + 5.8); cx += widths[ci]; });
+        let cx = M;
+        cells.forEach((lines, ci) => { doc.text(lines, cx + 3, y + PAD_V + 3.4); cx += widths[ci]; });
         y += rowH;
       });
+
       doc.setDrawColor(219, 228, 242); doc.setLineWidth(0.2);
-      doc.rect(M, top, tw, (data.length + 1) * rowH);
+      doc.rect(M, top, tw, y - top);
       return y + 7;
     };
 
