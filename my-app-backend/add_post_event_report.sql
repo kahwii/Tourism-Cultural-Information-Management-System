@@ -28,9 +28,15 @@
 --  LIVE (TiDB Cloud): add `USE tcims_db;` above, or select the database first.
 -- ============================================================
 
-ALTER TABLE events
-  ADD COLUMN post_event_report TEXT     DEFAULT NULL AFTER approval_remarks,
-  ADD COLUMN reported_at       DATETIME DEFAULT NULL AFTER post_event_report;
+-- Two statements on purpose. Combining them and writing
+--   ADD COLUMN reported_at ... AFTER post_event_report
+-- in the same ALTER fails on TiDB with "Unknown column 'post_event_report'":
+-- MySQL resolves an AFTER clause against columns added earlier in the same
+-- statement, TiDB resolves it against the table as it already exists. Split
+-- like this, it runs on both.
+ALTER TABLE events ADD COLUMN post_event_report TEXT DEFAULT NULL AFTER approval_remarks;
+
+ALTER TABLE events ADD COLUMN reported_at DATETIME DEFAULT NULL AFTER post_event_report;
 
 -- Verify: post_event_report and reported_at should appear, and `participants`
 -- should already be there from the base schema.
