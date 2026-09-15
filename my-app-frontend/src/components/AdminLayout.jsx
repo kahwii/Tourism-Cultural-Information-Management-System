@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { apiSetAdminPin, apiInquiryCount } from "../api/api";
+import { apiSetAdminPin, apiInquiryCount, apiList } from "../api/api";
 import Icon from "./Icon";
 import Avatar from "./Avatar";
 
@@ -69,6 +69,29 @@ export default function AdminLayout() {
     return () => { cancelled = true; };
   }, [location.pathname]);
 
+  /*
+    Events awaiting approval, counted the same way.
+
+    A staff member's event sits at Pending until an approver publishes it, so
+    an unnoticed queue means an event that never goes live — and the person
+    who submitted it has no way to tell the difference between "not yet
+    reviewed" and "rejected". The banner inside the Events page only helps
+    someone who already opened it; this puts the number where it is seen
+    without looking for it.
+  */
+  const [pendingEvents, setPendingEvents] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    apiList("events")
+      .then((rows) => {
+        if (cancelled) return;
+        const list = Array.isArray(rows) ? rows : [];
+        setPendingEvents(list.filter(e => e.approval_status === "Pending").length);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [location.pathname]);
+
   const [openGroups, setOpenGroups] = useState({
     "Tourism Directory": location.pathname.startsWith("/admin/tourism")
       || ["/admin/tourist-spots", "/admin/restaurants", "/admin/hotels", "/admin/tourism-businesses"]
@@ -106,7 +129,7 @@ export default function AdminLayout() {
       ]
     },
     { label: "Certificates", icon: "file", to: "/admin/certificates" },
-    { label: "Events", icon: "calendar", to: "/admin/events" },
+    { label: "Events", icon: "calendar", to: "/admin/events", badge: pendingEvents },
     { label: "Visitor Inquiries", icon: "message", to: "/admin/inquiries", badge: openInquiries },
     // Separate from Visitor Inquiries on purpose: those are public questions
     // answered by email, these are internal reports from CCAT's own field

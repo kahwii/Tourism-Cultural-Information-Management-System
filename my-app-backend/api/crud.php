@@ -16,7 +16,11 @@ $TABLES = [
   "restaurants"        => ["name","cuisine","address","contact_no","email","website","status","image"],
   "hotels"             => ["name","type","address","contact_no","email","website","status","image"],
   "tourism_businesses" => ["name","type","address","contact_no","email","website","status","image"],
-  "events"             => ["name","event_date","start_time","end_time","month","category","venue","description","participants","status","image","approval_status","approval_remarks"],
+  // `participants` is the ACTUAL attendance recorded after the event, and
+  // `post_event_report` the staff member's account of how it went. See
+  // add_post_event_report.sql — reported_at is stamped by the server below,
+  // so it is deliberately not writable from the request body.
+  "events"             => ["name","event_date","start_time","end_time","month","category","venue","description","participants","status","image","approval_status","approval_remarks","post_event_report"],
   "heritage_sites"     => ["name","category","tagline","est","location","description","significance","status","coordinates","image"],
   "certificates"       => ["establishment","type","business_permit_no","applicant","contact","address","submitted_date","status","control_no","business_account_no","or_no","issued","expiry","remarks","owner_id","picked_up_at"],
   "reviews"            => ["place","reviewer","rating","sentiment","ml_sentiment","comment"],
@@ -308,6 +312,15 @@ if ($method === 'PUT') {
     if ($table === 'events' && isset($body['approval_status'])) {
       $by = $isApprover ? (int)$authUser['id'] : 0;
       mysqli_query($conn, "UPDATE events SET approved_by = " . ($by ?: "NULL") . " WHERE id = " . (int)$id);
+    }
+    // Stamp when a post-event report was actually received. Done here rather
+    // than accepting a timestamp from the request so the record reflects when
+    // CCAT got the report, not whatever the phone's clock said. Re-saving an
+    // existing report refreshes it; clearing the field clears the stamp too,
+    // so "reported_at is set" always means "there is a report".
+    if ($table === 'events' && array_key_exists('post_event_report', $body)) {
+      $hasReport = trim((string)($body['post_event_report'] ?? '')) !== '';
+      mysqli_query($conn, "UPDATE events SET reported_at = " . ($hasReport ? "NOW()" : "NULL") . " WHERE id = " . (int)$id);
     }
     // Start the 90-day pickup clock the moment a certificate is first approved.
     // COALESCE keeps re-saving an already-approved record from resetting it.
