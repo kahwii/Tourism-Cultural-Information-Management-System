@@ -227,7 +227,7 @@ export default function Certificates() {
         ) : err ? (
           <div style={{ padding: 40, textAlign: "center", color: "#dc2626" }}>
              {err}
-            <div><button style={eyeBtn} className="tc-btn" onClick={load}>Retry</button></div>
+            <div style={{ marginTop: 10 }}><button style={cancelBtn} className="tc-btn" onClick={load}>Retry</button></div>
           </div>
         ) : (
         <>
@@ -256,14 +256,16 @@ export default function Certificates() {
                 </td>
                 <td style={tdStyle}>{a.submitted}</td>
                 <td style={{ ...tdStyle, textAlign: "center", whiteSpace: "nowrap" }}>
-                  <button style={eyeBtn} className="tc-btn" title="Review Application" onClick={() => openReview(a)}>Review</button>
-                  {a.status === "Approved" && !a.pickedUpAt && (
-                    <>
-                      <button style={certBtn} className="tc-btn" title="Resend pickup notice" onClick={() => resendNotice(a)} disabled={busy}>Notify</button>
-                      <button style={pickedBtn} className="tc-btn" title="Mark as picked up" onClick={() => markPickedUp(a)} disabled={busy}>Picked Up</button>
-                    </>
-                  )}
-                  <button style={delBtn} className="tc-btn" title="Delete Application" onClick={() => deleteApp(a)} disabled={busy}>Delete</button>
+                  <div className="tc-row-actions">
+                    <button className="tc-row-btn tc-row-btn-edit" title="Review application" onClick={() => openReview(a)}><Icon name="eye" size={16} /></button>
+                    {a.status === "Approved" && !a.pickedUpAt && (
+                      <>
+                        <button className="tc-row-btn tc-row-btn-warn" title="Resend pickup notice" onClick={() => resendNotice(a)} disabled={busy}><Icon name="bell" size={16} /></button>
+                        <button className="tc-row-btn tc-row-btn-approve" title="Mark as picked up" onClick={() => markPickedUp(a)} disabled={busy}><Icon name="check" size={16} /></button>
+                      </>
+                    )}
+                    <button className="tc-row-btn tc-row-btn-danger" title="Delete application" onClick={() => deleteApp(a)} disabled={busy}><Icon name="trash" size={16} /></button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -282,7 +284,7 @@ export default function Certificates() {
           <div style={modal} className="tc-modal" onClick={(e) => e.stopPropagation()}>
             <div style={modalTop}>
               <span style={{ fontWeight: 700, fontSize: 20 }}>Review Application</span>
-              <button style={closeBtn} className="tc-btn" onClick={closeReview}>✕</button>
+              <button className="tc-row-btn" onClick={closeReview} title="Close"><Icon name="x" size={17} /></button>
             </div>
 
             <div style={{ padding: "22px" }}>
@@ -360,16 +362,18 @@ export default function Certificates() {
             <div style={modalFooter}>
               {reviewing.status === "Under Review" ? (
                 <>
-                  <button style={rejectBtn} className="tc-btn" onClick={reject} disabled={busy}>⊘ Reject</button>
-                  <button style={approveBtn} className="tc-btn tc-btn-primary" onClick={approve} disabled={busy}>{busy ? "Saving…" : "✓ Approve"}</button>
+                  <button style={rejectBtn} className="tc-btn" onClick={reject} disabled={busy}><Icon name="x" size={16} /> Reject</button>
+                  <button style={approveBtn} className="tc-btn tc-btn-primary" onClick={approve} disabled={busy}>
+                    {busy ? "Saving…" : <><Icon name="check" size={16} /> Approve</>}
+                  </button>
                 </>
               ) : reviewing.status === "Approved" && !reviewing.pickedUpAt ? (
                 <>
                   <button style={rejectBtn} className="tc-btn" onClick={() => resendNotice(reviewing)} disabled={busy}>
-                    {busy ? "Sending…" : "Resend Pickup Notice"}
+                    {busy ? "Sending…" : <><Icon name="bell" size={16} /> Resend Pickup Notice</>}
                   </button>
                   <button style={approveBtn} className="tc-btn tc-btn-primary" onClick={() => markPickedUp(reviewing)} disabled={busy}>
-                    ✓ Mark as Picked Up
+                    <Icon name="check" size={16} /> Mark as Picked Up
                   </button>
                 </>
               ) : (
@@ -403,16 +407,14 @@ const badgeBase = { padding: "4px 12px", borderRadius: "999px", fontSize: "12px"
 const badgeBlue = { ...badgeBase, background: "#dbeafe", color: "#1D4ED8" };
 const badgeGreen = { ...badgeBase, background: "#dcfce7", color: "#16a34a" };
 const badgeRed = { ...badgeBase, background: "#fee2e2", color: "#dc2626" };
-const eyeBtn = { background: "none", border: "none", cursor: "pointer", fontSize: "16px", color: "#1D4ED8" };
-const certBtn = { background: "#dcfce7", border: "1px solid #bbf7d0", color: "#16a34a", borderRadius: 6, padding: "3px 10px", marginLeft: 8, cursor: "pointer", fontSize: "13px", fontWeight: 700 };
-const pickedBtn = { background: "#dbeafe", border: "1px solid #bfdbfe", color: "#1D4ED8", borderRadius: 6, padding: "3px 10px", marginLeft: 8, cursor: "pointer", fontSize: "13px", fontWeight: 700 };
+// Row actions are the shared .tc-row-btn icon group (see index.css) — the same
+// control used on every other admin table, so the certificate rows no longer
+// look like a different product.
 const pickupTone = { green: "#16a34a", amber: "#b45309", red: "#dc2626", blue: "#1D4ED8" };
-const delBtn = { background: "#fee2e2", border: "1px solid #fecaca", color: "#dc2626", borderRadius: 6, padding: "3px 10px", marginLeft: 8, cursor: "pointer", fontSize: "13px", fontWeight: 700 };
 
 const overlay = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 };
 const modal = { background: "#fff", borderRadius: "16px", width: "640px", maxWidth: "100%", maxHeight: "92vh", overflowY: "auto", boxShadow: "0 20px 50px rgba(0,0,0,0.3)" };
 const modalTop = { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 22px", borderBottom: "1px solid #eef2f8" };
-const closeBtn = { background: "none", border: "none", fontSize: "18px", cursor: "pointer", color: "#6b7280" };
 const infoLabel = { fontSize: "13px", color: "#6b7280", marginBottom: 4 };
 const infoValue = { fontSize: "15px", fontWeight: 600, color: "#0F172A" };
 const infoSm = { fontSize: "14px", color: "#374151", padding: "1px 0" };
@@ -420,6 +422,9 @@ const docChip = { background: "#F7FAFF", border: "1px solid #e6ecf5", borderRadi
 const textarea = { width: "100%", minHeight: 110, padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1d5db", fontSize: "14px", boxSizing: "border-box", marginTop: 6, resize: "vertical", fontFamily: "inherit" };
 const approvedBox = { background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", padding: "14px" };
 const modalFooter = { display: "flex", justifyContent: "flex-end", gap: 10, padding: "16px 22px", borderTop: "1px solid #eef2f8" };
-const rejectBtn = { background: "#fff", color: "#dc2626", border: "1px solid #fecaca", borderRadius: "10px", padding: "10px 20px", fontSize: "14px", fontWeight: 600, cursor: "pointer" };
-const approveBtn = { background: "#16a34a", color: "#fff", border: "none", borderRadius: "10px", padding: "10px 20px", fontSize: "14px", fontWeight: 600, cursor: "pointer" };
-const cancelBtn = { background: "#f1f5f9", color: "#374151", border: "none", borderRadius: "10px", padding: "10px 20px", fontSize: "14px", cursor: "pointer" };
+// inline-flex + gap so the icon sits centred against the label rather than on
+// the text baseline, which is what a glyph character like "✓" was doing.
+const footerBtn = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: "10px", padding: "10px 20px", fontSize: "14px", fontWeight: 600, cursor: "pointer" };
+const rejectBtn = { ...footerBtn, background: "#fff", color: "#dc2626", border: "1px solid #fecaca" };
+const approveBtn = { ...footerBtn, background: "#16a34a", color: "#fff", border: "none" };
+const cancelBtn = { ...footerBtn, background: "#f1f5f9", color: "#374151", border: "none", fontWeight: 500 };
