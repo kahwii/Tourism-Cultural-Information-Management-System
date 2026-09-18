@@ -1,19 +1,4 @@
 {
-  "_comment": [
-    "Two rewrites, and the order matters — Vercel takes the first match.",
-    "",
-    "/backend/* is a server-side proxy to the PHP API on Render. The browser",
-    "only ever talks to this vercel.app origin; Vercel's edge fetches Render",
-    "from its own datacenter. That exists because some ISPs blackhole TLS to",
-    "*.onrender.com (SNI filtering: port 80 connects, 443 times out, ping still",
-    "replies), which made the live site unusable on those networks even though",
-    "nothing was wrong with the backend. Proxying moves that fetch off the",
-    "visitor's network, and as a side effect the API becomes same-origin, so",
-    "CORS preflights disappear.",
-    "",
-    "The catch-all must stay last or it would swallow /backend/* and serve",
-    "index.html instead of proxying."
-  ],
   "rewrites": [
     {
       "source": "/backend/:path*",
