@@ -69,8 +69,21 @@ function tcims_cap_letters($token) {
              . mb_strtolower(mb_substr($w, 1, null, 'UTF-8'), 'UTF-8');
     }, $token);
     // "Mcdonald" → "McDonald". Applied after the pass above, not instead of it.
-    return preg_replace_callback('/\bMc(\p{Ll})/u', function ($m) {
+    $out = preg_replace_callback('/\bMc(\p{Ll})/u', function ($m) {
         return 'Mc' . mb_strtoupper($m[1], 'UTF-8');
+    }, $out);
+
+    /*
+      An apostrophe starts a new letter-run, so the pass above capitalises what
+      follows it — right for "O'Brien", wrong for "McDonald'S".
+
+      What separates the two is the length of the run BEFORE the apostrophe:
+      one letter means a name particle ("O'", "D'"), two or more means the
+      apostrophe is possessive or a contraction, and the letter after it stays
+      small. Only a lone trailing letter is lowered, so "Dell'Arte" is safe.
+    */
+    return preg_replace_callback("/(\p{L}{2,})'(\p{L})\\b/u", function ($m) {
+        return $m[1] . "'" . mb_strtolower($m[2], 'UTF-8');
     }, $out);
 }
 

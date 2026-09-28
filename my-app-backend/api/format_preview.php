@@ -30,6 +30,8 @@ $cases = [
     ["suffix, shouted",       "name",  "JOSE RIZAL III",              "Jose Rizal III"],
     ["apostrophe",            "name",  "o'brien",                     "O'Brien"],
     ["Mc",                    "name",  "mcdonald's ortigas",          "McDonald's Ortigas"],
+    ["possessive stays small", "name", "aling nena's carinderia",     "Aling Nena's Carinderia"],
+    ["one-letter particle",   "name",  "d'mall shaw",                 "D'Mall Shaw"],
     ["brand kept as typed",   "name",  "ABS-CBN Studio",              "ABS-CBN Studio"],
     ["lowercase brand caps",  "name",  "iHop Shaw",                   "iHop Shaw"],
     ["hyphenated given name", "name",  "mary-jane lopez",             "Mary-Jane Lopez"],
