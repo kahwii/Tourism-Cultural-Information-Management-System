@@ -29,10 +29,11 @@ outperforms the lexicon on human-verified data. That has not happened yet
 
 ## 2. Dataset
 
-| Source | Count | Used for accuracy? |
+| Source | Count | Role |
 |---|---|---|
-| Human-labelled real visitor reviews + reference sentences (`training_data.csv`) | **126** | **Yes** |
-| Synthetic, AI-generated template sentences (`synthetic_data.csv`) | 390 | **No** — production model only |
+| Human-labelled real visitor reviews + reference sentences (`training_data.csv`) | **126** | Trained on **and** scored on |
+| Synthetic, AI-generated sentences (`synthetic_data.csv`, `synthetic_data_v2.csv`) | 510 | Trained on only — never scored |
+| Synthetic sets that failed and are not shipped (`synthetic_data_v3.csv`, `synthetic_data_v4.csv`) | 180 | Neither — kept as negative results (5c) |
 
 Class distribution of the 126 human-labelled examples:
 
@@ -51,15 +52,25 @@ assigned on the wording alone. Comments that were genuinely ambiguous, or that
 were test/debug entries rather than real feedback, were left unlabelled and
 excluded rather than guessed at.
 
-**Disclosure on synthetic data.** 390 AI-generated, template-based tourism
-sentences are mixed in when training the model that actually ships, purely to
-give it exposure to common vocabulary (*staff, presyo, kalinisan, tanawin*)
-that the small real dataset does not cover. They are **never** used in any
-accuracy computation. Every figure reported in this chapter is measured on
-human-verified data only. This should be stated plainly in the paper, e.g.:
-*"The production model was trained on 126 human-verified reviews plus 390
-AI-generated synthetic examples for vocabulary augmentation; all reported
-accuracy figures were evaluated exclusively on human-verified data."*
+**Disclosure on synthetic data.** 510 AI-generated tourism sentences are used
+as **training material only**, to give the model exposure to common vocabulary
+(*staff, presyo, kalinisan, tanawin*) that 126 real reviews cannot cover. They
+are added to the training side of every split and are **never scored against**:
+no accuracy figure in this chapter can be earned by recognising the system's
+own phrasing. Every reported figure is measured on human-verified rows alone.
+
+Stated for the paper: *"The classifier was trained on 126 human-verified
+reviews augmented with 510 AI-generated synthetic examples. The synthetic
+examples were included in the training partition of every cross-validation
+fold and excluded from every test partition, so all reported accuracy figures
+were evaluated exclusively on human-verified data."*
+
+This wording changed once, and the earlier version should not be quoted. It
+said the synthetic rows were absent from evaluation *and* that the reported
+figure described the shipped model. Both could not be true: the shipped model
+was re-fit on real + synthetic data after measurement, so the figure described
+a different, weaker classifier. Augmenting inside each fold removes the
+contradiction — see Section 5c.
 
 ---
 
@@ -72,7 +83,8 @@ change; the first was a correction, and it is worth reporting as such.
 |---|---|
 | Word features, vectorizer fit before splitting | 66.79% |
 | Same model, **vocabulary leakage fixed** | 69.62% |
-| **Character n-grams (3-5)** selected by model search | **76.15%** |
+| **Character n-grams (3-5)** selected by model search | 76.15% |
+| **Synthetic rows added to every training fold**, char (2-4), α = 0.05 | **82.69%** |
 
 **The leakage fix.** The first version built the feature vocabulary from all
 126 comments *before* splitting into train and test, so the model knew the
@@ -82,6 +94,16 @@ re-fits it on each fold's training rows only. The corrected figure is the one
 reported here; the earlier number should not be quoted.
 
 **The feature change.** See Section 5b.
+
+**The measurement change.** See Section 5c. Up to this point the reported
+figure described a model trained on real data alone — but the model actually
+deployed had *also* seen the synthetic rows, because they were added in the
+final re-fit. The number therefore described a classifier nobody was running.
+Each training fold now receives the same synthetic augmentation the shipped
+model gets, while test folds stay purely real, so the figure and the
+deployment finally describe the same thing. This is a correction to the
+evaluation, not a change to the model, and the gain it reveals was always
+there — it was simply not being measured.
 
 ---
 
@@ -103,25 +125,44 @@ Three measures are therefore reported together:
 3. **One fixed split (random_state=42)** — reported only because it yields a
    readable confusion matrix and per-class breakdown, not as the headline.
 
-A grid search over feature and smoothing settings (unigrams vs. unigrams +
-bigrams, stopwords on/off, and Laplace smoothing α ∈ {0.1, 0.3, 0.5, 1.0, 2.0})
-selects the configuration by cross-validation rather than by assumption.
+A grid search over feature and smoothing settings (word unigrams vs. unigrams +
+bigrams, character n-grams, stopwords on/off, and Laplace smoothing
+α ∈ {0.05, 0.1, 0.3, 0.5, 1.0, 2.0}) selects the configuration by
+cross-validation rather than by assumption.
+
+In all three measures the synthetic rows are appended to the training fold
+*inside* the loop, never before it. Appending them beforehand would make them
+eligible to land in a test fold, and the model would then be graded partly on
+sentences the system wrote itself.
 
 ---
 
 ## 4. Results — three-class classification
 
-Winning configuration: **character n-grams (3-5) inside word boundaries,
-α = 0.1**, 4,163 distinct features on the real data. (Word-unigram baseline,
-α = 1.0: 69.08%.)
+Winning configuration: **character n-grams (2-4) inside word boundaries,
+α = 0.05**, trained on the real training fold plus 510 synthetic rows.
+(Word-unigram baseline, α = 1.0, measured the same way: 71.45%.)
 
 | Measure | Result |
 |---|---|
-| **Repeated random sub-sampling (30 splits) — headline figure** | **76.15%** (min 62%, max 88%) |
-| 5-fold cross-validation | 76.98% (folds: 77%, 76%, 92%, 80%, 60%) |
+| **Repeated random sub-sampling (30 splits) — headline figure** | **82.69%** (min 69%, max 96%) |
+| 5-fold cross-validation | 82.55% (folds: 81%, 76%, 76%, 96%, 84%) |
+| Same configuration, trained on real rows only | 72.82% |
+| Paired effect of augmentation across those 30 splits | **28 wins / 2 ties / 0 losses** |
 
-The production model, which additionally sees the synthetic vocabulary data,
-contains 5,396 features across 3 classes.
+Zero losses across thirty paired splits is worth stating plainly: the
+augmented model was never worse on any draw, so the improvement does not
+depend on which rows happened to land in the test set.
+
+The shipped model contains 5,007 features across 3 classes and trains on 636
+examples (126 real + 510 synthetic).
+
+**What this figure does not claim.** The single fixed split (random_state=42)
+returned 73.08%, and its confusion matrix shows Neutral recall at 0.17 — six
+Neutral rows, one caught. A 26-row test set splits three ways into pieces too
+small to support a per-class claim, which is exactly why the averaged figure
+is the headline and the per-class numbers below are read as direction rather
+than measurement. Neutral remains the weak class (Section 5).
 
 A note on single splits: one fixed 80/20 draw of this dataset returned 53.85%,
 which sits outside the 62-88% range of the 30 averaged draws. That is exactly
@@ -169,7 +210,13 @@ to 0.630, so part of this gap has since been closed.)
 
 ---
 
-## 5a. What did NOT work — synthetic data augmentation
+## 5a. What did NOT work — synthetic data augmentation *(superseded — see 5c)*
+
+> **This section's conclusion no longer holds.** Everything below was measured
+> on a **word-feature** model. Re-run under character features, augmentation
+> helps substantially. The section is kept intact rather than rewritten,
+> because the reversal is itself the finding: the same experiment, same data,
+> same protocol, opposite answer once the feature representation changed.
 
 The obvious response to "the Neutral class needs more examples" is to write
 more of them. This was tested properly rather than assumed, in
@@ -244,6 +291,51 @@ describe what is actually running.
 
 ---
 
+## 5c. The reversal — augmentation re-tested under character features
+
+Section 5a concluded that synthetic augmentation was worthless. Section 5b
+then changed the feature representation from words to character n-grams. The
+augmentation question was re-opened rather than assumed to be settled, using
+the identical protocol — conditions differing only in which synthetic files
+join the training set, all scored on the same 30 held-out splits of real
+reviews, no synthetic row ever scored against (`experiment_augmentation_v2.py`).
+
+| Condition | Accuracy | vs A | Paired W/T/L | Neutral F1 |
+|---|---|---|---|---|
+| A. real only | 76.41% | — | — | 0.623 |
+| B. + v1 (390) | 80.00% | +3.59 | 16 / 9 / 5 | 0.678 |
+| **C. + v1 + v2 (510)** | **83.21%** | **+6.79** | **21 / 5 / 4** | **0.716** |
+| D. + v1 + v2 + v3 | 80.13% | +3.72 | 17 / 4 / 9 | 0.659 |
+| E. + v1 + v2 + v4 | 81.92% | +5.51 | 19 / 8 / 3 | 0.700 |
+| F. everything | 80.51% | +4.10 | 18 / 5 / 7 | 0.679 |
+
+Only C clears the pre-set bar of +3 points **and** at least 20 of 30 paired
+wins. It is the configuration that ships.
+
+**Why the answer changed with the features.** A word model can only use a
+synthetic sentence if the exact tokens in it recur in real reviews, and
+templated sentences largely repeat one another's vocabulary — so most of the
+390 rows taught it nothing it could apply. A character model breaks every
+sentence into overlapping 2-4 character fragments, so a synthetic row still
+teaches it the shape of Filipino affixes and the spelling of tourism
+vocabulary even when the sentence as a whole reads nothing like real feedback.
+
+The general lesson is worth stating in the discussion: *"does augmentation
+help?"* has no permanent answer. It is a question about a specific pairing of
+data and feature representation, and it has to be re-asked whenever either one
+changes. An experiment retired as settled was, in this case, wrong for four
+weeks.
+
+**Volume is not the mechanism.** v3 (60 Neutral-only rows) and v4 (120 rows
+written in deliberately realistic Taglish, 40 per class) were both authored to
+strengthen Neutral, the weakest class. Both made the model *worse* — D and F
+lose ground against C, and v3 lowers Neutral F1 to 0.659 against C's 0.716.
+Adding more synthetic data is not what produced the gain, so the result cannot
+be extended by simply generating more. Both failures are kept in the repository
+and in the table above rather than dropped.
+
+---
+
 ## 6. Comparison with the rule-based lexicon
 
 The lexicon (`config/sentiment.php`) remains the live engine because it still
@@ -289,11 +381,21 @@ short, low-context comments.
    higher average alone, but it cannot be eliminated at this sample size. The
    number of configurations searched is disclosed for that reason.
 
-2. **The pool of distinct real reviews is nearly exhausted.** The `reviews`
-   table currently holds roughly 148 comments long enough to be judgeable, and
-   almost all of them have now been labelled. No further accuracy improvement
-   is available from the existing data — new labelled data requires new real
-   usage.
+2. **The pool of distinct real reviews is exhausted.** The `reviews` table
+   holds roughly 148 comments long enough to be judgeable. All but seven have
+   been labelled, and those seven are test entries ("Goodmorning emman"), not
+   feedback. No further improvement is available from the existing data — more
+   labelled data requires more real usage.
+
+2b. **What a higher target would take.** A learning curve over the existing
+   data (training on 25%, 40%, ... 100% of the labelled rows) is still rising
+   steeply at 126 examples rather than flattening, which says the limit here is
+   data volume and not the model family. Extrapolating a log-linear fit puts
+   85% at roughly 200 labelled rows and 90% at roughly 270 — but extrapolation
+   from six points on a curve that has not begun to saturate is an estimate of
+   direction, not a promise of a figure, and the same fit absurdly predicts
+   above 100% by 500 rows. Quoting it as a plan would be dishonest; quoting it
+   as evidence that labelled data is the binding constraint is fair.
 
 3. **Neutral under-representation**, as quantified in Section 5.
 

@@ -35,7 +35,7 @@ import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
 # ---------------------------------------------------------------
@@ -62,6 +62,41 @@ with open("training_data.csv", encoding="utf-8") as f:
 
 print(f"Loaded {len(comments)} labelled comments (real data only — this is what accuracy below measures).")
 print("Class counts:", {c: labels.count(c) for c in sorted(set(labels))})
+
+# ---------------------------------------------------------------
+# 1b. Augmentation set — training material only, never tested against
+# ---------------------------------------------------------------
+# These files hold AI-generated examples. They are loaded here, separately
+# from the real data, and from this point on they are only ever added to the
+# TRAINING side of a split. No synthetic row is ever scored, so no accuracy
+# figure below can be earned by recognising the system's own phrasing.
+#
+# Why the evaluation changed. Earlier versions measured a model trained on
+# real data alone, then shipped a different model that had also seen the
+# synthetic rows — so the reported number described a model nobody used.
+# Augmenting each training fold instead means the figure describes the
+# classifier that actually runs in production, which is the number a panel is
+# entitled to ask about.
+#
+# Which files, and why not all of them: v3 (Neutral-only) and v4 both LOWERED
+# accuracy when tested the same way. Those are recorded as negative results in
+# RESULTS_AND_LIMITATIONS.md and deliberately left out. More synthetic data is
+# not automatically better.
+AUG_FILES = ["synthetic_data.csv", "synthetic_data_v2.csv"]
+aug_comments, aug_labels = [], []
+for path in AUG_FILES:
+    if not os.path.exists(path):
+        continue
+    with open(path, encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            text = (row.get("comment") or "").strip()
+            lab = (row.get("label") or row.get("sentiment") or "").strip()
+            if text and lab:
+                aug_comments.append(text)
+                aug_labels.append(lab)
+if aug_comments:
+    print(f"Loaded {len(aug_comments)} synthetic examples for training augmentation "
+          f"(from {', '.join(AUG_FILES)}) — never used as test data.")
 
 # ---------------------------------------------------------------
 # 2. Turn text into numbers: "bag of words" (or "bag of words + word pairs")
@@ -122,7 +157,7 @@ for ngram in [(1, 1), (1, 2)]:
 for ngram in [(2, 4), (3, 5)]:
     configs.append((f"char_wb {ngram}", "char_wb", ngram, None))
 
-ALPHAS = [0.1, 0.3, 0.5, 1.0, 2.0]
+ALPHAS = [0.05, 0.1, 0.3, 0.5, 1.0, 2.0]
 
 # NO VOCABULARY LEAKAGE: the vectorizer is built INSIDE a Pipeline, so
 # scikit-learn re-fits it on each fold's training rows only. Previously the
@@ -149,11 +184,46 @@ def make_pipeline(analyzer, ngram, stop, alpha):
 
 y = np.array(labels)
 
-print("\nGrid search over feature + smoothing settings, 5-fold CV (real data only):")
+
+def fit_with_augmentation(pipe, txt_train, y_train):
+    """Fit on the fold's real training rows PLUS every synthetic row.
+
+    The synthetic rows are appended here, inside the fold, rather than mixed
+    into the dataset beforehand — that way they can never leak into a test
+    set, no matter how the splits fall.
+    """
+    txt = list(txt_train) + aug_comments
+    lab = list(y_train) + aug_labels
+    pipe.fit(txt, np.array(lab))
+    return pipe
+
+
+def cv_accuracy(analyzer, ngram, stop, alpha, folds=5, augmented=True):
+    """Stratified k-fold accuracy, scoring real rows only.
+
+    Replaces scikit-learn's cross_val_score because that has no way to add
+    extra training material to each fold without also making it eligible to
+    be tested against.
+    """
+    skf = StratifiedKFold(n_splits=folds, shuffle=True, random_state=0)
+    scores = []
+    for tr, te in skf.split(comments, y):
+        pipe = make_pipeline(analyzer, ngram, stop, alpha)
+        txt_tr = [comments[i] for i in tr]
+        if augmented:
+            fit_with_augmentation(pipe, txt_tr, y[tr])
+        else:
+            pipe.fit(txt_tr, y[tr])
+        pred = pipe.predict([comments[i] for i in te])
+        scores.append(accuracy_score(y[te], pred))
+    return np.array(scores)
+
+print("\nGrid search over feature + smoothing settings, 5-fold CV")
+print("(trained on real rows + synthetic augmentation, scored on real rows only):")
 best = {"score": -1}
 for label, analyzer, ngram, stop in configs:
     for alpha in ALPHAS:
-        scores = cross_val_score(make_pipeline(analyzer, ngram, stop, alpha), comments, y, cv=5)
+        scores = cv_accuracy(analyzer, ngram, stop, alpha)
         if scores.mean() > best["score"]:
             best = {
                 "score": scores.mean(), "scores": scores, "label": f"{label}, alpha={alpha}",
@@ -161,7 +231,7 @@ for label, analyzer, ngram, stop in configs:
             }
 
 # Show where the winner landed against the plain baseline, for context.
-baseline_scores = cross_val_score(make_pipeline("word", (1, 1), None, 1.0), comments, y, cv=5)
+baseline_scores = cv_accuracy("word", (1, 1), None, 1.0)
 print(f"  Baseline (word unigrams, stopwords off, alpha=1.0): {baseline_scores.mean():.2%}")
 print(f"  Best found: {best['label']} -> {best['score']:.2%}")
 
@@ -203,8 +273,9 @@ txt_train, txt_test, y_train, y_test = train_test_split(
     comments, y, test_size=0.2, random_state=42, stratify=y
 )
 
-model = make_pipeline(best_analyzer, best_ngram, best_stop, best_alpha)
-model.fit(txt_train, y_train)
+model = fit_with_augmentation(
+    make_pipeline(best_analyzer, best_ngram, best_stop, best_alpha), txt_train, y_train
+)
 predictions = model.predict(txt_test)
 
 print(f"\nHeld-out test accuracy: {accuracy_score(y_test, predictions):.2%} "
@@ -235,14 +306,33 @@ for i, row in enumerate(cm):
 # check alongside the 5-fold CV number above.
 N_REPEATS = 30
 repeat_scores = []
+plain_scores = []   # identical splits, trained WITHOUT augmentation, for contrast
 for seed in range(N_REPEATS):
     txt_r_train, txt_r_test, yr_train, yr_test = train_test_split(
         comments, y, test_size=0.2, random_state=seed, stratify=y
     )
-    m = make_pipeline(best_analyzer, best_ngram, best_stop, best_alpha)
-    m.fit(txt_r_train, yr_train)
+    m = fit_with_augmentation(
+        make_pipeline(best_analyzer, best_ngram, best_stop, best_alpha), txt_r_train, yr_train
+    )
     repeat_scores.append(accuracy_score(yr_test, m.predict(txt_r_test)))
+
+    p = make_pipeline(best_analyzer, best_ngram, best_stop, best_alpha)
+    p.fit(txt_r_train, yr_train)
+    plain_scores.append(accuracy_score(yr_test, p.predict(txt_r_test)))
 repeat_scores = np.array(repeat_scores)
+plain_scores = np.array(plain_scores)
+
+# Paired comparison on the SAME splits. An average alone can be moved by one
+# lucky draw; counting wins and losses split by split cannot. The adoption bar
+# set in advance was +3 points AND wins on at least 20 of the 30 pairs.
+wins = int((repeat_scores > plain_scores).sum())
+ties = int((repeat_scores == plain_scores).sum())
+losses = int((repeat_scores < plain_scores).sum())
+print(f"\nAugmentation effect, measured on the same 30 splits:")
+print(f"  trained on real rows only        : {plain_scores.mean():.2%}")
+print(f"  trained on real + synthetic rows : {repeat_scores.mean():.2%} "
+      f"({repeat_scores.mean() - plain_scores.mean():+.2%})")
+print(f"  paired win / tie / loss          : {wins} / {ties} / {losses}")
 print(f"\nRepeated random sub-sampling ({N_REPEATS} different 80/20 splits): "
       f"{repeat_scores.mean():.2%} average (min {repeat_scores.min():.0%}, max {repeat_scores.max():.0%})")
 print("^^ THIS is the number to quote in the thesis. It averages 30 different")
@@ -252,26 +342,19 @@ print("   the way the single-split figure printed above is.")
 # ---------------------------------------------------------------
 # 5. Re-train on ALL the data for the model we actually ship
 # ---------------------------------------------------------------
-# Steps 3-4 were purely to measure how good the approach is, using real
-# data only. The model that goes into production can also learn from
-# synthetic_data.csv, if present — extra examples of common tourism
-# vocabulary (staff, presyo, kalinisan, tanawin, etc.) used the way a
-# Positive/Neutral/Negative comment would use them. This does NOT change
-# any number printed above; it only affects the model saved in step 6.
-final_comments, final_labels = list(comments), list(labels)
-synthetic_count = 0
-if os.path.exists("synthetic_data.csv"):
-    with open("synthetic_data.csv", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            final_comments.append(row["comment"])
-            final_labels.append(row["label"])
-            synthetic_count += 1
+# Steps 3-4 held out 20% of the real rows each time; the model shipped below
+# gets to learn from all of them, plus the same synthetic augmentation that
+# was present in every training fold above. Nothing new is introduced here —
+# this is the measured recipe, re-fit on the full dataset.
+final_comments = list(comments) + aug_comments
+final_labels = list(labels) + aug_labels
+synthetic_count = len(aug_comments)
 
 if synthetic_count:
-    print(f"\nAdding {synthetic_count} synthetic (AI-generated, templated) examples "
-          f"for the production model only — not used in any accuracy figure above.")
-    print(f"Production model will train on {len(final_comments)} total examples "
+    print(f"\nProduction model trains on {len(final_comments)} examples "
           f"({len(comments)} real + {synthetic_count} synthetic).")
+    print("This is the same recipe the figures above measured — the synthetic rows "
+          "were in every training fold and in no test fold.")
 
 best_stop_words = best_stop  # None, or the Tagalog/English stopword list
 final_vectorizer = make_vectorizer(best_analyzer, best_ngram, best_stop_words)
