@@ -10,6 +10,7 @@ require_once "../config/auth.php";
 require_once "../config/activity.php";
 require_once "../config/sentiment.php";
 require_once "../config/sentiment_ml.php";
+require_once "../config/format.php";
 
 $TABLES = [
   "tourist_spots"      => ["name","category","address","contact_no","email","website","status","coordinates","image"],
@@ -27,6 +28,41 @@ $TABLES = [
   "visits"             => ["user_id","place"],
   "users"              => ["username","email","role","status","avatar"],
   "rewards"            => ["user_id","reward","code","status","claimed_at"]
+];
+
+/*
+  INPUT NORMALISATION — see config/format.php for the rules themselves.
+
+  Columns listed here are cleaned on write, so "jollibee  shaw" and "JOLLIBEE
+  SHAW" both land as "Jollibee Shaw" no matter which client sent them.
+
+    name   — proper case for people, establishments, venues, address lines
+    email  — lowercased
+    single — whitespace collapsed, nothing else (values that must stay verbatim)
+
+  Three deliberate omissions:
+
+  - Free prose (description, significance, remarks, comment, post_event_report)
+    is left completely alone. Trimming it here would be harmless; title-casing
+    or collapsing newlines would not, and it is safer for this map to have no
+    opinion about prose at all.
+  - `reviews.place` / `visits.place` are join keys, matched character-for-
+    character against config/heritage_trail.php. Reformatting them would
+    silently break trail progress for anyone whose spelling then stopped
+    matching.
+  - `users.username` is a credential. Login compares it exactly; "improving" a
+    username locks the owner out.
+*/
+$FORMAT = [
+  "tourist_spots"      => ["name" => "name", "address" => "name", "email" => "email", "website" => "single"],
+  "restaurants"        => ["name" => "name", "address" => "name", "email" => "email", "website" => "single", "cuisine" => "name"],
+  "hotels"             => ["name" => "name", "address" => "name", "email" => "email", "website" => "single"],
+  "tourism_businesses" => ["name" => "name", "address" => "name", "email" => "email", "website" => "single"],
+  "events"             => ["name" => "name", "venue" => "name"],
+  "heritage_sites"     => ["name" => "name", "location" => "name", "tagline" => "single"],
+  "certificates"       => ["establishment" => "name", "applicant" => "name", "address" => "name"],
+  "reviews"            => ["reviewer" => "name"],
+  "users"              => ["email" => "email"],
 ];
 
 /*
@@ -240,6 +276,8 @@ if ($method === 'POST') {
     $mlResult = tcims_sentiment_ml($comment);
     $body['ml_sentiment'] = $mlResult['sentiment'] ?? null;
   }
+  // Normalise names/emails before anything reads them (see $FORMAT above).
+  if (isset($FORMAT[$table])) $body = tcims_format_body($body, $FORMAT[$table]);
   // Events maker-checker: only an approver may set approval_status directly.
   // A CCAT Staff submission always lands as "Pending" for admin review.
   if ($table === 'events') {
@@ -283,6 +321,9 @@ if ($method === 'POST') {
 
 if ($method === 'PUT') {
   if (!$id) { http_response_code(400); echo json_encode(["error" => "id is required."]); exit; }
+  // Same normalisation as POST — an edit should not be able to reintroduce
+  // "JOLLIBEE  SHAW" through the back door.
+  if (isset($FORMAT[$table])) $body = tcims_format_body($body, $FORMAT[$table]);
   // Events maker-checker: a CCAT Staff edit sends the event back to "Pending"
   // and can never self-approve. Non-approvers cannot touch the field at all.
   if ($table === 'events') {

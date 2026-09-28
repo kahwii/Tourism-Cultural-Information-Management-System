@@ -1,6 +1,7 @@
 <?php
 require_once "../config/cors.php";
 require_once "../config/db.php";
+require_once "../config/format.php";
 
 $data = json_decode(file_get_contents("php://input"), true) ?: [];
 $roleIn = isset($data['role']) ? strtolower(trim($data['role'])) : "tourist";
@@ -42,8 +43,10 @@ $secAnswerHash = password_hash(strtolower($secAnswer), PASSWORD_DEFAULT); // cas
    TOURIST — simple username/password sign-up
    ============================================================ */
 if ($role === "Tourist") {
+    // The username is a credential and is stored exactly as typed. The email
+    // is lowercased so the same address can't register twice in two casings.
     $username = isset($data['username']) ? trim($data['username']) : "";
-    $emailIn  = isset($data['email']) ? trim($data['email']) : "";
+    $emailIn  = tcims_clean_email($data['email'] ?? "");
     if ($username === "") {
         http_response_code(400);
         echo json_encode(["error" => "Username is required."]);
@@ -83,8 +86,11 @@ if ($role === "Tourist") {
    accreditation application visible to the admin.
    Login username = the registered email.
    ============================================================ */
-$email = isset($data['email']) ? trim($data['email']) : "";
-$businessName = isset($data['business_name']) ? trim($data['business_name']) : "";
+// The establishment's email doubles as its login username, so it is lowercased
+// once here and reused for both — MySQL's default collation compares case-
+// insensitively, so signing in with the original casing still works.
+$email = tcims_clean_email($data['email'] ?? "");
+$businessName = tcims_proper_name($data['business_name'] ?? "");
 
 if ($email === "" || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
     http_response_code(400);
@@ -139,18 +145,20 @@ if (!mysqli_stmt_execute($stmt)) {
 $uid = mysqli_insert_id($conn);
 
 // 2) save the full profile
-$firstName  = $esc($data['first_name']  ?? "");
-$middleName = $esc($data['middle_name'] ?? "");
-$lastName   = $esc($data['last_name']   ?? "");
+// Proper-cased before escaping (config/format.php): the applicant types these
+// once, under pressure, and they end up on a printed certificate.
+$firstName  = $esc(tcims_proper_name($data['first_name']  ?? ""));
+$middleName = $esc(tcims_proper_name($data['middle_name'] ?? ""));
+$lastName   = $esc(tcims_proper_name($data['last_name']   ?? ""));
 $sex        = $esc($data['sex']         ?? "");
 $accountType = $esc($data['account_type'] ?? "");
 $bName      = $esc($businessName);
 $estType    = $esc($data['establishment_type'] ?? "Tourism Business");
-$region     = $esc($data['region']     ?? "");
-$province   = $esc($data['province']   ?? "");
-$city       = $esc($data['city']       ?? "");
-$barangay   = $esc($data['barangay']   ?? "");
-$bAddress   = $esc($data['business_address'] ?? "");
+$region     = $esc(tcims_proper_name($data['region']   ?? ""));
+$province   = $esc(tcims_proper_name($data['province'] ?? ""));
+$city       = $esc(tcims_proper_name($data['city']     ?? ""));
+$barangay   = $esc(tcims_proper_name($data['barangay'] ?? ""));
+$bAddress   = $esc(tcims_proper_name($data['business_address'] ?? ""));
 $zip        = $esc($data['zip_code']   ?? "");
 $mobile     = $esc($data['mobile']     ?? "");
 $telephone  = $esc($data['telephone']  ?? "");

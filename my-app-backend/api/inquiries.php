@@ -14,6 +14,7 @@ require_once "../config/db.php";
 require_once "../config/auth.php";
 require_once "../config/activity.php";
 require_once "../config/smtp.php";
+require_once "../config/format.php";
 
 $method = $_SERVER['REQUEST_METHOD'];
 $body = json_decode(file_get_contents("php://input"), true) ?: [];
@@ -31,9 +32,13 @@ if ($method === 'POST') {
         exit;
     }
 
-    $name    = trim($body['name'] ?? '');
-    $email   = trim($body['email'] ?? '');
-    $subject = trim($body['subject'] ?? '');
+    // The visitor's own typing gets cleaned up (config/format.php) — this name
+    // is read back by staff and pasted into the reply greeting. If the sender
+    // turns out to be a signed-in account, the name is replaced by the username
+    // further down, and a username is never reformatted.
+    $name    = tcims_proper_name($body['name'] ?? '');
+    $email   = tcims_clean_email($body['email'] ?? '');
+    $subject = tcims_collapse_spaces($body['subject'] ?? '');
     $message = trim($body['message'] ?? '');
 
     // Category is a fixed list, not free text — it feeds the CCAT reports,
